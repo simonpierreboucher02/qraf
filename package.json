@@ -1,6 +1,6 @@
 {
   "name": "qraf-runtime",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "QRAF — Local LLM inference runtime with custom model format, optimized for Apple Silicon",
   "main": "npm/index.js",
   "bin": {
