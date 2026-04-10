@@ -1,0 +1,50 @@
+\contentsline {section}{\numberline {1}Introduction}{5}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Contributions}{5}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Paper Organization}{6}{subsection.1.2}%
+\contentsline {section}{\numberline {2}Related Work}{6}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Local LLM Inference Engines}{6}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Model Formats}{6}{subsection.2.2}%
+\contentsline {subsection}{\numberline {2.3}Quantization Methods}{6}{subsection.2.3}%
+\contentsline {section}{\numberline {3}Mathematical Foundations}{6}{section.3}%
+\contentsline {subsection}{\numberline {3.1}The Transformer Architecture}{7}{subsection.3.1}%
+\contentsline {subsection}{\numberline {3.2}Attention Mechanism}{7}{subsection.3.2}%
+\contentsline {subsubsection}{\numberline {3.2.1}Multi-Head Attention}{7}{subsubsection.3.2.1}%
+\contentsline {subsubsection}{\numberline {3.2.2}Grouped Query Attention}{8}{subsubsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.3}Rotary Position Embedding (RoPE)}{9}{subsection.3.3}%
+\contentsline {subsection}{\numberline {3.4}Normalization Layers}{10}{subsection.3.4}%
+\contentsline {subsection}{\numberline {3.5}Feed-Forward Networks}{10}{subsection.3.5}%
+\contentsline {subsection}{\numberline {3.6}Sampling Theory}{11}{subsection.3.6}%
+\contentsline {section}{\numberline {4}Computational Complexity and Memory Analysis}{12}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Per-Token FLOPs}{12}{subsection.4.1}%
+\contentsline {subsection}{\numberline {4.2}Memory Bandwidth Analysis}{13}{subsection.4.2}%
+\contentsline {subsection}{\numberline {4.3}Memory Requirements}{14}{subsection.4.3}%
+\contentsline {section}{\numberline {5}Quantization Theory}{15}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Block-wise Symmetric Quantization}{15}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Error Propagation in Matrix-Vector Products}{15}{subsection.5.2}%
+\contentsline {subsection}{\numberline {5.3}KV Cache Quantization}{16}{subsection.5.3}%
+\contentsline {section}{\numberline {6}QRAF Binary Format}{16}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Design Principles}{16}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Header Structure (128 bytes)}{17}{subsection.6.2}%
+\contentsline {subsection}{\numberline {6.3}Tensor Metadata (80 bytes per tensor)}{18}{subsection.6.3}%
+\contentsline {section}{\numberline {7}Multi-Architecture Inference Engine}{18}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Supported Architectures}{18}{subsection.7.1}%
+\contentsline {subsection}{\numberline {7.2}Forward Pass Algorithms}{19}{subsection.7.2}%
+\contentsline {subsection}{\numberline {7.3}BPE Tokenization Algorithm}{19}{subsection.7.3}%
+\contentsline {section}{\numberline {8}Apple Silicon Optimization}{20}{section.8}%
+\contentsline {subsection}{\numberline {8.1}NEON SIMD Throughput Model}{20}{subsection.8.1}%
+\contentsline {subsection}{\numberline {8.2}Combined Speedup Model}{20}{subsection.8.2}%
+\contentsline {section}{\numberline {9}Advanced Features}{21}{section.9}%
+\contentsline {subsection}{\numberline {9.1}LoRA Adapter Merging}{21}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Speculative Decoding}{21}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Continuous Batching}{22}{subsection.9.3}%
+\contentsline {section}{\numberline {10}Universal Model Converter}{22}{section.10}%
+\contentsline {section}{\numberline {11}Experimental Evaluation}{22}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Setup}{22}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Inference Speed Across 26 Models}{23}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}Throughput Scaling}{24}{subsection.11.3}%
+\contentsline {subsection}{\numberline {11.4}Optimization Breakdown}{24}{subsection.11.4}%
+\contentsline {subsection}{\numberline {11.5}Text Quality Assessment}{25}{subsection.11.5}%
+\contentsline {section}{\numberline {12}Discussion}{25}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Design Trade-offs}{25}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Limitations}{26}{subsection.12.2}%
+\contentsline {section}{\numberline {13}Conclusion}{26}{section.13}%
