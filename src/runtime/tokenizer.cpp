@@ -217,49 +217,58 @@ std::vector<u32> Tokenizer::encode(const std::string& text) const {
     if (text.empty()) return {};
 
     // Convert raw text to GPT-2 byte-level unicode for vocab lookup
-    // This maps space (0x20) -> Ġ (U+0120), newline -> Ċ, etc.
     std::string unicode_text = encode_bytes_to_unicode(text);
 
-    // Step 1: Greedy longest-match tokenization on unicode text
-    std::vector<u32> tokens;
-    for (size_t i = 0; i < unicode_text.size(); ) {
-        bool found = false;
-        for (size_t len = std::min(unicode_text.size() - i, size_t(128)); len > 0; len--) {
-            std::string substr = unicode_text.substr(i, len);
-            auto it = token_to_id_.find(substr);
-            if (it != token_to_id_.end()) {
-                tokens.push_back(it->second);
-                i += len;
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
-            // Fall back to single unicode character or unknown
-            // Find the end of the current UTF-8 character
+    if (!merges_.empty()) {
+        // ─── BPE path: char-level init, then merge ───
+        // This is the correct BPE algorithm:
+        // 1. Split into individual unicode characters
+        // 2. Look up each character in vocab
+        // 3. Apply BPE merges iteratively (most common pairs first)
+        std::vector<u32> tokens;
+        size_t i = 0;
+        while (i < unicode_text.size()) {
             u8 c = static_cast<u8>(unicode_text[i]);
             int char_len = 1;
             if (c >= 0xC0 && c < 0xE0) char_len = 2;
             else if (c >= 0xE0 && c < 0xF0) char_len = 3;
             else if (c >= 0xF0) char_len = 4;
 
-            std::string single_char = unicode_text.substr(i, char_len);
-            auto it = token_to_id_.find(single_char);
-            if (it != token_to_id_.end()) {
-                tokens.push_back(it->second);
-            } else {
-                tokens.push_back(unk_id_);
-            }
+            std::string ch = unicode_text.substr(i, char_len);
+            auto it = token_to_id_.find(ch);
+            tokens.push_back(it != token_to_id_.end() ? it->second : unk_id_);
             i += char_len;
         }
+        return apply_bpe(tokens);
+    } else {
+        // ─── Legacy greedy path (no merges) ───
+        std::vector<u32> tokens;
+        for (size_t i = 0; i < unicode_text.size(); ) {
+            bool found = false;
+            for (size_t len = std::min(unicode_text.size() - i, size_t(128)); len > 0; len--) {
+                std::string substr = unicode_text.substr(i, len);
+                auto it = token_to_id_.find(substr);
+                if (it != token_to_id_.end()) {
+                    tokens.push_back(it->second);
+                    i += len;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                u8 c = static_cast<u8>(unicode_text[i]);
+                int char_len = 1;
+                if (c >= 0xC0 && c < 0xE0) char_len = 2;
+                else if (c >= 0xE0 && c < 0xF0) char_len = 3;
+                else if (c >= 0xF0) char_len = 4;
+                std::string ch = unicode_text.substr(i, char_len);
+                auto it = token_to_id_.find(ch);
+                tokens.push_back(it != token_to_id_.end() ? it->second : unk_id_);
+                i += char_len;
+            }
+        }
+        return tokens;
     }
-
-    // Step 2: Apply BPE merges
-    if (!merges_.empty()) {
-        tokens = apply_bpe(tokens);
-    }
-
-    return tokens;
 }
 
 std::vector<u32> Tokenizer::apply_bpe(const std::vector<u32>& input) const {

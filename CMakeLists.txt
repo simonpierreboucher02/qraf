@@ -147,6 +147,7 @@ add_executable(qraf-cli
     src/cli/main.cpp
     src/cli/commands.cpp
     src/cli/chat.cpp
+    src/cli/model_browser.cpp
 )
 target_link_libraries(qraf-cli PRIVATE qraf_runtime)
 

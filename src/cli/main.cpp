@@ -87,6 +87,16 @@ int main(int argc, char* argv[]) {
         return cli::cmd_chat_interactive(dir);
     }
 
+    if (command == "browse" || command == "store" || command == "download") {
+        std::string dir = "models";
+        for (int i = 1; i < static_cast<int>(args.size()); i++) {
+            if (args[i] == "--dir" || args[i] == "-d") {
+                dir = get_arg(args, i, args[i]);
+            }
+        }
+        return cli::cmd_browse(dir);
+    }
+
     if (command == "list") {
         std::string dir = "models";
         for (int i = 1; i < static_cast<int>(args.size()); i++) {

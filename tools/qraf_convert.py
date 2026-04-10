@@ -148,6 +148,9 @@ class QrafWriter:
             off = self.add_string(tok)
             score = self.vocab_scores[i] if i < len(self.vocab_scores) else 0.0
             tok_block += struct.pack('<IIfI', off, len(tok.encode('utf-8')), score, 0)
+        # BPE merge entries: (token_a, token_b, result, priority)
+        for merge in self.merges:
+            tok_block += struct.pack('<IIIf', merge[0], merge[1], merge[2], merge[3])
         for stype in range(4):
             tok_id = self.special_tokens.get(stype, 0)
             tok_block += struct.pack('<IIII', 0, 0, tok_id, stype)
@@ -256,6 +259,85 @@ def detect_format(source: str) -> str:
     return 'huggingface'
 
 
+# ─── BPE Merge Extraction ───
+
+def _extract_bpe_merges(tokenizer, vocab_dict):
+    """Extract BPE merges from a HuggingFace tokenizer.
+    Returns list of (token_a_id, token_b_id, result_id, priority)."""
+    merges_list = []
+
+    # Method 1: Parse tokenizer.json from the fast tokenizer backend
+    try:
+        if hasattr(tokenizer, 'backend_tokenizer'):
+            tok_json = json.loads(tokenizer.backend_tokenizer.to_str())
+            if 'model' in tok_json and 'merges' in tok_json.get('model', {}):
+                raw_merges = tok_json['model']['merges']
+                total = len(raw_merges)
+                for rank, merge_entry in enumerate(raw_merges):
+                    # Merges can be "a b" strings or ["a", "b"] arrays
+                    if isinstance(merge_entry, str):
+                        parts = merge_entry.split(' ', 1)
+                        if len(parts) != 2: continue
+                        a, b = parts[0], parts[1]
+                    elif isinstance(merge_entry, (list, tuple)) and len(merge_entry) == 2:
+                        a, b = str(merge_entry[0]), str(merge_entry[1])
+                    else:
+                        continue
+                    a_id = vocab_dict.get(a)
+                    b_id = vocab_dict.get(b)
+                    result_id = vocab_dict.get(a + b)
+                    if a_id is not None and b_id is not None and result_id is not None:
+                        priority = float(total - rank)
+                        merges_list.append((a_id, b_id, result_id, priority))
+                if merges_list:
+                    return merges_list
+    except Exception as e:
+        print(f"  [merge extract method 1 failed: {e}]")
+
+    # Method 2: Try bpe_ranks (old slow tokenizer)
+    try:
+        if hasattr(tokenizer, 'bpe_ranks'):
+            total = len(tokenizer.bpe_ranks)
+            for (a, b), rank in tokenizer.bpe_ranks.items():
+                a_id = vocab_dict.get(a)
+                b_id = vocab_dict.get(b)
+                result_id = vocab_dict.get(a + b)
+                if a_id is not None and b_id is not None and result_id is not None:
+                    priority = float(total - rank)
+                    merges_list.append((a_id, b_id, result_id, priority))
+            if merges_list:
+                return merges_list
+    except Exception:
+        pass
+
+    # Method 3: Try reading merges.txt from tokenizer files
+    try:
+        if hasattr(tokenizer, 'vocab_files_names'):
+            merges_file = getattr(tokenizer, 'merges_file', None)
+            if merges_file and os.path.exists(merges_file):
+                with open(merges_file) as f:
+                    lines = f.readlines()
+                total = len(lines)
+                for rank, line in enumerate(lines):
+                    line = line.strip()
+                    if line.startswith('#') or not line:
+                        continue
+                    parts = line.split(' ', 1)
+                    if len(parts) != 2:
+                        continue
+                    a, b = parts
+                    a_id = vocab_dict.get(a)
+                    b_id = vocab_dict.get(b)
+                    result_id = vocab_dict.get(a + b)
+                    if a_id is not None and b_id is not None and result_id is not None:
+                        priority = float(total - rank)
+                        merges_list.append((a_id, b_id, result_id, priority))
+    except Exception:
+        pass
+
+    return merges_list
+
+
 # ─── HuggingFace Converter ───
 
 def convert_huggingface(source: str, writer: QrafWriter):
@@ -304,6 +386,10 @@ def convert_huggingface(source: str, writer: QrafWriter):
     pad = tokenizer.pad_token_id or 0
     unk = tokenizer.unk_token_id or 0
     writer.set_special(bos, eos, pad, unk)
+
+    # ─── Extract BPE merges ───
+    writer.merges = _extract_bpe_merges(tokenizer, vocab_dict)
+    print(f"[HF] BPE merges: {len(writer.merges)}")
 
     # Tensors
     state = model.state_dict()
@@ -681,9 +767,9 @@ def _try_load_tokenizer(directory: Path, writer: QrafWriter):
         pad = tok.pad_token_id or 0
         unk = tok.unk_token_id or 0
         writer.set_special(bos, eos, pad, unk)
-        print(f"  Tokenizer: {len(tokens)} tokens")
+        writer.merges = _extract_bpe_merges(tok, vocab)
+        print(f"  Tokenizer: {len(tokens)} tokens, {len(writer.merges)} merges")
     except Exception:
-        # Fallback
         print("  Warning: no tokenizer found")
         writer.set_vocab([f"<{i}>" for i in range(32000)])
 
