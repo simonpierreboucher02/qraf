@@ -101,17 +101,18 @@ void attention_forward(
     if (weights.bk) dispatch_add(k.data(), weights.bk, kv_dim);
     if (weights.bv) dispatch_add(v.data(), weights.bv, kv_dim);
 
-    // Apply RoPE: once per Q head, once per KV head (FIXED — no double projection)
-    for (int h = 0; h < num_heads; h++) {
-        f32* q_head = q.data() + h * head_dim;
-        // Compute RoPE for this Q head using a dummy K (we only want Q rotated)
-        f32 dummy_k[256] = {};
-        ops::rope(q_head, dummy_k, head_dim, pos, config.rope_theta);
-    }
-    for (int kh = 0; kh < num_kv_heads; kh++) {
-        f32* k_head = k.data() + kh * head_dim;
-        f32 dummy_q[256] = {};
-        ops::rope(dummy_q, k_head, head_dim, pos, config.rope_theta);
+    // Apply RoPE if architecture uses it (Llama, Pythia, CodeGen)
+    if (config.use_rope) {
+        for (int h = 0; h < num_heads; h++) {
+            f32* q_head = q.data() + h * head_dim;
+            f32 dummy_k[256] = {};
+            ops::rope(q_head, dummy_k, head_dim, pos, config.rope_theta);
+        }
+        for (int kh = 0; kh < num_kv_heads; kh++) {
+            f32* k_head = k.data() + kh * head_dim;
+            f32 dummy_q[256] = {};
+            ops::rope(dummy_q, k_head, head_dim, pos, config.rope_theta);
+        }
     }
 
     // Store K, V in cache

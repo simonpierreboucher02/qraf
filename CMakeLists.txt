@@ -110,6 +110,21 @@ if(APPLE AND QRAF_USE_ACCELERATE)
     endif()
 endif()
 
+# Apple Metal GPU backend
+if(APPLE)
+    option(QRAF_USE_METAL "Use Metal GPU backend" ON)
+    if(QRAF_USE_METAL)
+        find_library(METAL_FRAMEWORK Metal)
+        find_library(FOUNDATION_FRAMEWORK Foundation)
+        if(METAL_FRAMEWORK AND FOUNDATION_FRAMEWORK)
+            target_sources(qraf_nn PRIVATE src/nn/metal_backend.mm)
+            target_link_libraries(qraf_nn PUBLIC ${METAL_FRAMEWORK} ${FOUNDATION_FRAMEWORK})
+            target_compile_definitions(qraf_nn PUBLIC QRAF_METAL=1)
+            message(STATUS "  Metal GPU: ON")
+        endif()
+    endif()
+endif()
+
 # ─── Sampling ───
 add_library(qraf_sampling STATIC
     src/sampling/sampler.cpp
@@ -120,6 +135,8 @@ target_link_libraries(qraf_sampling PUBLIC qraf_tensor)
 add_library(qraf_runtime STATIC
     src/runtime/model_manager.cpp
     src/runtime/inference.cpp
+    src/runtime/speculative.cpp
+    src/nn/lora.cpp
 )
 target_link_libraries(qraf_runtime PUBLIC
     qraf_format qraf_nn qraf_sampling qraf_tokenizer

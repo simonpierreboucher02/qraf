@@ -84,25 +84,76 @@ inline bool dtype_is_quantized(DType dt) {
     }
 }
 
+// Architecture family
+enum class ArchType {
+    LLAMA,      // LLaMA, Qwen2, SmolLM, TinyLlama (RMSNorm, RoPE, SwiGLU)
+    GPT2,       // GPT-2, DialoGPT, Cerebras-GPT, LaMini (LayerNorm, learned pos, GELU)
+    GPT_NEOX,   // Pythia (LayerNorm, RoPE, parallel attn+MLP, GELU)
+    OPT,        // OPT (LayerNorm, learned pos, ReLU)
+    CODEGEN,    // CodeGen (LayerNorm, RoPE, GELU)
+    STARCODER,  // StarCoder/BigCode (LayerNorm, learned pos, MQA, GELU)
+};
+
 struct ModelConfig {
-    std::string architecture;  // "llama", "gpt2", etc.
+    std::string architecture;  // raw string: "llama", "gpt2", etc.
+    ArchType arch_type = ArchType::LLAMA;
+
     u32 vocab_size     = 0;
     u32 hidden_size    = 0;
     u32 num_layers     = 0;
     u32 num_heads      = 0;
-    u32 num_kv_heads   = 0;  // for GQA
+    u32 num_kv_heads   = 0;  // for GQA/MQA
     u32 intermediate_size = 0;
     u32 max_seq_len    = 2048;
     f32 rope_theta     = 10000.0f;
-    f32 rms_norm_eps   = 1e-5f;
-    u32 head_dim       = 0;  // computed: hidden_size / num_heads
+    f32 rms_norm_eps   = 1e-5f;  // also used as layer_norm_eps
+    u32 head_dim       = 0;
+
+    // Architecture-specific
+    bool use_rope           = true;   // false for GPT-2, OPT (learned pos embeds)
+    bool use_rms_norm       = true;   // false for GPT-2/OPT/Pythia (use LayerNorm)
+    bool use_swiglu         = true;   // false for GPT-2/OPT/Pythia (standard MLP)
+    bool use_parallel_attn  = false;  // true for GPT-NeoX/Pythia
+    bool has_bias           = false;  // attention bias (Qwen, GPT-2)
+    bool has_mlp_bias       = false;  // MLP bias (GPT-2, OPT)
+    std::string activation  = "silu"; // "silu", "gelu", "relu"
 
     void compute_derived() {
-        if (num_heads > 0) {
-            head_dim = hidden_size / num_heads;
-        }
-        if (num_kv_heads == 0) {
-            num_kv_heads = num_heads;
+        if (num_heads > 0) head_dim = hidden_size / num_heads;
+        if (num_kv_heads == 0) num_kv_heads = num_heads;
+
+        // Set architecture-specific defaults
+        if (architecture == "llama" || architecture == "qwen2" || architecture == "mistral") {
+            arch_type = ArchType::LLAMA;
+            use_rope = true; use_rms_norm = true; use_swiglu = true;
+            activation = "silu";
+            if (architecture == "qwen2") has_bias = true;
+        } else if (architecture == "gpt2") {
+            arch_type = ArchType::GPT2;
+            use_rope = false; use_rms_norm = false; use_swiglu = false;
+            has_bias = true; has_mlp_bias = true; activation = "gelu";
+            if (intermediate_size == 0) intermediate_size = hidden_size * 4;
+        } else if (architecture == "gpt_neox") {
+            arch_type = ArchType::GPT_NEOX;
+            use_rope = true; use_rms_norm = false; use_swiglu = false;
+            use_parallel_attn = true; activation = "gelu";
+            if (intermediate_size == 0) intermediate_size = hidden_size * 4;
+        } else if (architecture == "opt") {
+            arch_type = ArchType::OPT;
+            use_rope = false; use_rms_norm = false; use_swiglu = false;
+            has_bias = true; has_mlp_bias = true; activation = "relu";
+            if (intermediate_size == 0) intermediate_size = hidden_size * 4;
+        } else if (architecture == "codegen") {
+            arch_type = ArchType::CODEGEN;
+            use_rope = true; use_rms_norm = false; use_swiglu = false;
+            use_parallel_attn = true; activation = "gelu";
+            if (intermediate_size == 0) intermediate_size = hidden_size * 4;
+        } else if (architecture == "gpt_bigcode") {
+            arch_type = ArchType::STARCODER;
+            use_rope = false; use_rms_norm = false; use_swiglu = false;
+            has_bias = true; has_mlp_bias = true; activation = "gelu";
+            num_kv_heads = 1; // MQA
+            if (intermediate_size == 0) intermediate_size = hidden_size * 4;
         }
     }
 };

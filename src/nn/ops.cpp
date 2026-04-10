@@ -117,6 +117,29 @@ void rms_norm_inplace(f32* x, const f32* weight, int size, f32 eps) {
     }
 }
 
+// ─── Layer Normalization ───
+
+void layer_norm_inplace(f32* x, const f32* weight, const f32* bias, int size, f32 eps) {
+    // Compute mean
+    f32 mean = 0.0f;
+    for (int i = 0; i < size; i++) mean += x[i];
+    mean /= static_cast<f32>(size);
+
+    // Compute variance
+    f32 var = 0.0f;
+    for (int i = 0; i < size; i++) {
+        f32 d = x[i] - mean;
+        var += d * d;
+    }
+    var /= static_cast<f32>(size);
+
+    f32 inv_std = 1.0f / std::sqrt(var + eps);
+    for (int i = 0; i < size; i++) {
+        x[i] = (x[i] - mean) * inv_std * weight[i];
+        if (bias) x[i] += bias[i];
+    }
+}
+
 Tensor rms_norm(const Tensor& x, const Tensor& weight, f32 eps) {
     QRAF_CHECK_SHAPE(x.ndim() == 1, "rms_norm: x must be 1D, got %uD", x.ndim());
     QRAF_CHECK_SHAPE(weight.ndim() == 1, "rms_norm: weight must be 1D");

@@ -29,9 +29,10 @@ void matvec_quantized(const void* w_data, u64 w_size,
 
 // RMS Normalization: x = x * rsqrt(mean(x^2) + eps) * weight
 Tensor rms_norm(const Tensor& x, const Tensor& weight, f32 eps = 1e-5f);
-
-// In-place RMS norm on raw buffer
 void rms_norm_inplace(f32* x, const f32* weight, int size, f32 eps = 1e-5f);
+
+// Layer Normalization: x = (x - mean) / sqrt(var + eps) * weight + bias
+void layer_norm_inplace(f32* x, const f32* weight, const f32* bias, int size, f32 eps = 1e-5f);
 
 // ─── Positional encoding ───
 
