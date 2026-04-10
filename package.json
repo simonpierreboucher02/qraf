@@ -1,5 +1,5 @@
 {
-  "name": "qraf",
+  "name": "@spboucher/qraf",
   "version": "0.1.0",
   "description": "QRAF — Local LLM inference runtime with custom model format, optimized for Apple Silicon",
   "main": "npm/index.js",

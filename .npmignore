@@ -1,0 +1,8 @@
+build/
+models/
+*.qraf
+.DS_Store
+.cache/
+.claude/
+node_modules/
+.git/
