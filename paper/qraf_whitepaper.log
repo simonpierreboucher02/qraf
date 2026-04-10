@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.22)  10 APR 2026 17:59
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.3.22)  10 APR 2026 18:02
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1358,17 +1358,13 @@ l-iza-tion.
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
  ***********
-
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
 Package rerunfilecheck Info: File `qraf_whitepaper.out' has not changed.
 (rerunfilecheck)             Checksum: 586E14D203440EE03F87ABA3ADAF2123;8447.
  ) 
 Here is how much of TeX's memory you used:
  44421 strings out of 467525
  1025388 string characters out of 5418982
- 1820875 words of memory out of 5000000
+ 1820880 words of memory out of 5000000
  72350 multiletter control sequences out of 15000+600000
  760109 words of font info for 135 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
@@ -1396,7 +1392,7 @@ tt12.pfb></usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtt8.pfb></
 usr/local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtti10.pfb></usr/local
 /texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symbols/msam10.pfb></usr/l
 ocal/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on qraf_whitepaper.pdf (29 pages, 590254 bytes).
+Output written on qraf_whitepaper.pdf (29 pages, 590247 bytes).
 PDF statistics:
  853 PDF objects out of 1000 (max. 8388607)
  756 compressed objects within 8 object streams
