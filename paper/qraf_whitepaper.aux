@@ -7,14 +7,12 @@
 \citation{llamacpp2023}
 \citation{ollama2024}
 \citation{kwon2023vllm}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:introduction}{{1}{1}{Introduction}{section.1}{}}
 \citation{llamacpp2023}
 \citation{ollama2024}
 \citation{kwon2023vllm}
 \citation{mlcllm2023}
-\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
-\newlabel{sec:introduction}{{1}{1}{Introduction}{section.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{1}{section.2}\protected@file@percent }
-\newlabel{sec:related}{{2}{1}{Related Work}{section.2}{}}
 \citation{gguf2023}
 \citation{safetensors2023}
 \citation{frantar2023gptq}
@@ -22,9 +20,8 @@
 \citation{kim2024squeezellm}
 \citation{ainslie2023gqa}
 \citation{shazeer2019mqa}
-\citation{su2024roformer}
-\citation{zhang2019rmsnorm}
-\citation{ba2016layernorm}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Related Work}{2}{section.2}\protected@file@percent }
+\newlabel{sec:related}{{2}{2}{Related Work}{section.2}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {3}Mathematical Foundations}{2}{section.3}\protected@file@percent }
 \newlabel{sec:math}{{3}{2}{Mathematical Foundations}{section.3}{}}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Transformer Architecture}{2}{subsection.3.1}\protected@file@percent }
@@ -34,107 +31,106 @@
 \newlabel{eq:v_proj}{{4}{2}{Multi-Head Attention}{equation.4}{}}
 \newlabel{eq:attention_weights}{{5}{2}{Grouped Query Attention (GQA)}{equation.5}{}}
 \newlabel{eq:attention_output}{{6}{2}{Grouped Query Attention (GQA)}{equation.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Rotary Position Embedding (RoPE)}{2}{subsection.3.3}\protected@file@percent }
-\newlabel{eq:rope_rotation}{{8}{2}{RoPE \citep {su2024roformer}}{equation.8}{}}
-\newlabel{eq:rope_freq}{{9}{2}{RoPE \citep {su2024roformer}}{equation.9}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Normalization}{2}{subsection.3.4}\protected@file@percent }
-\newlabel{eq:rmsnorm}{{12}{2}{RMSNorm \citep {zhang2019rmsnorm}}{equation.12}{}}
+\citation{su2024roformer}
+\citation{zhang2019rmsnorm}
+\citation{ba2016layernorm}
 \citation{shazeer2020glu}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Rotary Position Embedding (RoPE)}{3}{subsection.3.3}\protected@file@percent }
+\newlabel{eq:rope_rotation}{{8}{3}{RoPE \citep {su2024roformer}}{equation.8}{}}
+\newlabel{eq:rope_freq}{{9}{3}{RoPE \citep {su2024roformer}}{equation.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}Normalization}{3}{subsection.3.4}\protected@file@percent }
+\newlabel{eq:rmsnorm}{{12}{3}{RMSNorm \citep {zhang2019rmsnorm}}{equation.12}{}}
+\newlabel{eq:layernorm}{{13}{3}{LayerNorm \citep {ba2016layernorm}}{equation.13}{}}
 \citation{holtzman2020nucleus}
 \citation{keskar2019ctrl}
-\newlabel{eq:layernorm}{{13}{3}{LayerNorm \citep {ba2016layernorm}}{equation.13}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Feed-Forward Networks}{3}{subsection.3.5}\protected@file@percent }
-\newlabel{eq:swiglu}{{14}{3}{SwiGLU MLP \citep {shazeer2020glu}}{equation.14}{}}
-\newlabel{eq:standard_mlp}{{15}{3}{Standard MLP}{equation.15}{}}
-\newlabel{eq:gelu}{{16}{3}{Standard MLP}{equation.16}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Sampling Theory}{3}{subsection.3.6}\protected@file@percent }
-\newlabel{eq:temperature}{{17}{3}{Temperature-scaled Categorical Sampling}{equation.17}{}}
-\newlabel{eq:topk}{{18}{3}{Top-$k$ Filtering}{equation.18}{}}
-\newlabel{eq:topp}{{19}{3}{Nucleus (Top-$p$) Sampling \citep {holtzman2020nucleus}}{equation.19}{}}
-\newlabel{eq:repetition}{{20}{3}{Repetition Penalty \citep {keskar2019ctrl}}{equation.20}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {4}Computational Complexity Analysis}{3}{section.4}\protected@file@percent }
-\newlabel{sec:complexity}{{4}{3}{Computational Complexity Analysis}{section.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Per-Token Complexity}{3}{subsection.4.1}\protected@file@percent }
-\newlabel{eq:total_flops}{{21}{3}{Single-Token Forward Pass Complexity}{equation.21}{}}
-\newlabel{eq:layer_flops}{{22}{3}{Single-Token Forward Pass Complexity}{equation.22}{}}
-\newlabel{prop:intensity}{{2}{3}{Arithmetic Intensity}{proposition.2}{}}
-\newlabel{eq:intensity}{{23}{3}{Arithmetic Intensity}{equation.23}{}}
-\newlabel{eq:kv_bytes}{{24}{4}{Arithmetic Intensity}{equation.24}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Memory Requirements}{4}{subsection.4.2}\protected@file@percent }
-\newlabel{eq:memory}{{25}{4}{Model Memory Footprint}{equation.25}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Quantization Theory}{4}{section.5}\protected@file@percent }
-\newlabel{sec:quantmath}{{5}{4}{Quantization Theory}{section.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Block-wise Symmetric Quantization}{4}{subsection.5.1}\protected@file@percent }
-\newlabel{eq:quant}{{29}{4}{Q$b$\_0 Quantization}{equation.29}{}}
-\newlabel{thm:quant_error}{{3}{4}{Quantization Error Bound}{theorem.3}{}}
-\newlabel{eq:quant_error_bound}{{30}{4}{Quantization Error Bound}{equation.30}{}}
-\newlabel{eq:rmse_bound}{{31}{4}{Quantization Error Bound}{equation.31}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Quantization error bounds by bit width.}}{4}{table.caption.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.5}Feed-Forward Networks}{4}{subsection.3.5}\protected@file@percent }
+\newlabel{eq:swiglu}{{14}{4}{SwiGLU MLP \citep {shazeer2020glu}}{equation.14}{}}
+\newlabel{eq:standard_mlp}{{15}{4}{Standard MLP}{equation.15}{}}
+\newlabel{eq:gelu}{{16}{4}{Standard MLP}{equation.16}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.6}Sampling Theory}{4}{subsection.3.6}\protected@file@percent }
+\newlabel{eq:temperature}{{17}{4}{Temperature-scaled Categorical Sampling}{equation.17}{}}
+\newlabel{eq:topk}{{18}{4}{Top-$k$ Filtering}{equation.18}{}}
+\newlabel{eq:topp}{{19}{4}{Nucleus (Top-$p$) Sampling \citep {holtzman2020nucleus}}{equation.19}{}}
+\newlabel{eq:repetition}{{20}{4}{Repetition Penalty \citep {keskar2019ctrl}}{equation.20}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Computational Complexity Analysis}{4}{section.4}\protected@file@percent }
+\newlabel{sec:complexity}{{4}{4}{Computational Complexity Analysis}{section.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Per-Token Complexity}{4}{subsection.4.1}\protected@file@percent }
+\newlabel{eq:total_flops}{{21}{5}{Single-Token Forward Pass Complexity}{equation.21}{}}
+\newlabel{eq:layer_flops}{{22}{5}{Single-Token Forward Pass Complexity}{equation.22}{}}
+\newlabel{prop:intensity}{{2}{5}{Arithmetic Intensity}{proposition.2}{}}
+\newlabel{eq:intensity}{{23}{5}{Arithmetic Intensity}{equation.23}{}}
+\newlabel{eq:kv_bytes}{{24}{5}{Arithmetic Intensity}{equation.24}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.2}Memory Requirements}{5}{subsection.4.2}\protected@file@percent }
+\newlabel{eq:memory}{{25}{5}{Model Memory Footprint}{equation.25}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Quantization Theory}{6}{section.5}\protected@file@percent }
+\newlabel{sec:quantmath}{{5}{6}{Quantization Theory}{section.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Block-wise Symmetric Quantization}{6}{subsection.5.1}\protected@file@percent }
+\newlabel{eq:quant}{{29}{6}{Q$b$\_0 Quantization}{equation.29}{}}
+\newlabel{thm:quant_error}{{3}{6}{Quantization Error Bound}{theorem.3}{}}
+\newlabel{eq:quant_error_bound}{{30}{6}{Quantization Error Bound}{equation.30}{}}
+\newlabel{eq:rmse_bound}{{31}{6}{Quantization Error Bound}{equation.31}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces Quantization error bounds by bit width.}}{6}{table.caption.1}\protected@file@percent }
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{tab:quant_bounds}{{1}{4}{Quantization error bounds by bit width}{table.caption.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Quantized Dot Product}{4}{subsection.5.2}\protected@file@percent }
-\newlabel{eq:dot_error}{{32}{4}{Error of Quantized Dot Product}{equation.32}{}}
-\newlabel{eq:dot_error_q8}{{33}{4}{Error of Quantized Dot Product}{equation.33}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}KV Cache Quantization}{4}{subsection.5.3}\protected@file@percent }
-\newlabel{eq:kv_quant}{{34}{4}{KV Cache Quantization}{equation.34}{}}
+\newlabel{tab:quant_bounds}{{1}{6}{Quantization error bounds by bit width}{table.caption.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Quantized Dot Product}{6}{subsection.5.2}\protected@file@percent }
+\newlabel{eq:dot_error}{{32}{6}{Error of Quantized Dot Product}{equation.32}{}}
+\newlabel{eq:dot_error_q8}{{33}{6}{Error of Quantized Dot Product}{equation.33}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}KV Cache Quantization}{6}{subsection.5.3}\protected@file@percent }
+\newlabel{eq:kv_quant}{{34}{6}{KV Cache Quantization}{equation.34}{}}
 \citation{fnv1a}
-\@writefile{toc}{\contentsline {section}{\numberline {6}QRAF Binary Format}{5}{section.6}\protected@file@percent }
-\newlabel{sec:format}{{6}{5}{QRAF Binary Format}{section.6}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces QRAF file sections.}}{5}{table.caption.3}\protected@file@percent }
-\newlabel{tab:layout}{{2}{5}{QRAF file sections}{table.caption.3}{}}
-\newlabel{eq:fnv1a}{{39}{5}{QRAF Binary Format}{equation.39}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {7}Inference Engine}{5}{section.7}\protected@file@percent }
-\newlabel{sec:engine}{{7}{5}{Inference Engine}{section.7}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Architecture Dispatch}{5}{subsection.7.1}\protected@file@percent }
-\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces Multi-Architecture Forward Pass}}{5}{algorithm.1}\protected@file@percent }
-\newlabel{alg:forward}{{1}{5}{Multi-Architecture Forward Pass}{algorithm.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}BPE Tokenization}{5}{subsection.7.2}\protected@file@percent }
-\@writefile{loa}{\contentsline {algorithm}{\numberline {2}{\ignorespaces Byte-Pair Encoding with Merge Table}}{5}{algorithm.2}\protected@file@percent }
-\newlabel{alg:bpe}{{2}{5}{Byte-Pair Encoding with Merge Table}{algorithm.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6}QRAF Binary Format}{7}{section.6}\protected@file@percent }
+\newlabel{sec:format}{{6}{7}{QRAF Binary Format}{section.6}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces QRAF file sections.}}{7}{table.caption.2}\protected@file@percent }
+\newlabel{tab:layout}{{2}{7}{QRAF file sections}{table.caption.2}{}}
+\newlabel{eq:fnv1a}{{39}{7}{QRAF Binary Format}{equation.39}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Inference Engine}{7}{section.7}\protected@file@percent }
+\newlabel{sec:engine}{{7}{7}{Inference Engine}{section.7}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.1}Architecture Dispatch}{7}{subsection.7.1}\protected@file@percent }
+\@writefile{loa}{\contentsline {algorithm}{\numberline {1}{\ignorespaces Multi-Architecture Forward Pass}}{8}{algorithm.1}\protected@file@percent }
+\newlabel{alg:forward}{{1}{8}{Multi-Architecture Forward Pass}{algorithm.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.2}BPE Tokenization}{8}{subsection.7.2}\protected@file@percent }
+\@writefile{loa}{\contentsline {algorithm}{\numberline {2}{\ignorespaces Byte-Pair Encoding with Merge Table}}{8}{algorithm.2}\protected@file@percent }
+\newlabel{alg:bpe}{{2}{8}{Byte-Pair Encoding with Merge Table}{algorithm.2}{}}
 \citation{hu2022lora}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Apple Silicon Optimization}{9}{section.8}\protected@file@percent }
+\newlabel{sec:optimization}{{8}{9}{Apple Silicon Optimization}{section.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Optimization Hierarchy}{9}{subsection.8.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Backend selection hierarchy.}}{9}{table.caption.3}\protected@file@percent }
+\newlabel{tab:backends}{{3}{9}{Backend selection hierarchy}{table.caption.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}NEON Throughput Model}{9}{subsection.8.2}\protected@file@percent }
+\newlabel{eq:neon_throughput}{{40}{9}{NEON Dot Product Throughput}{equation.40}{}}
+\newlabel{eq:neon_speedup}{{41}{9}{NEON Dot Product Throughput}{equation.41}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}GCD Threading Model}{9}{subsection.8.3}\protected@file@percent }
+\newlabel{eq:threading}{{42}{9}{GCD Threading Model}{equation.42}{}}
+\newlabel{eq:threading_condition}{{43}{9}{GCD Threading Model}{equation.43}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9}Advanced Features}{9}{section.9}\protected@file@percent }
+\newlabel{sec:advanced}{{9}{9}{Advanced Features}{section.9}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}LoRA Adapter Merging}{9}{subsection.9.1}\protected@file@percent }
+\newlabel{eq:lora}{{44}{9}{Low-Rank Adaptation \citep {hu2022lora}}{equation.44}{}}
 \citation{leviathan2023speculative}
-\@writefile{toc}{\contentsline {section}{\numberline {8}Apple Silicon Optimization}{6}{section.8}\protected@file@percent }
-\newlabel{sec:optimization}{{8}{6}{Apple Silicon Optimization}{section.8}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.1}Optimization Hierarchy}{6}{subsection.8.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Backend selection hierarchy.}}{6}{table.caption.4}\protected@file@percent }
-\newlabel{tab:backends}{{3}{6}{Backend selection hierarchy}{table.caption.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.2}NEON Throughput Model}{6}{subsection.8.2}\protected@file@percent }
-\newlabel{eq:neon_throughput}{{40}{6}{NEON Dot Product Throughput}{equation.40}{}}
-\newlabel{eq:neon_speedup}{{41}{6}{NEON Dot Product Throughput}{equation.41}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.3}GCD Threading Model}{6}{subsection.8.3}\protected@file@percent }
-\newlabel{eq:threading}{{42}{6}{GCD Threading Model}{equation.42}{}}
-\newlabel{eq:threading_condition}{{43}{6}{GCD Threading Model}{equation.43}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {9}Advanced Features}{6}{section.9}\protected@file@percent }
-\newlabel{sec:advanced}{{9}{6}{Advanced Features}{section.9}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {9.1}LoRA Adapter Merging}{6}{subsection.9.1}\protected@file@percent }
-\newlabel{eq:lora}{{44}{6}{Low-Rank Adaptation \citep {hu2022lora}}{equation.44}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Speculative Decoding}{6}{subsection.9.2}\protected@file@percent }
-\newlabel{eq:spec_speedup}{{45}{6}{Speculative Decoding Speedup \citep {leviathan2023speculative}}{equation.45}{}}
-\newlabel{eq:rejection}{{46}{6}{Speculative Decoding}{equation.46}{}}
-\newlabel{eq:adjusted}{{47}{6}{Speculative Decoding}{equation.47}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Continuous Batching}{6}{subsection.9.3}\protected@file@percent }
-\newlabel{eq:scheduling}{{48}{6}{Iteration-Level Scheduling}{equation.48}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {10}Evaluation}{7}{section.10}\protected@file@percent }
-\newlabel{sec:evaluation}{{10}{7}{Evaluation}{section.10}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {10.1}Experimental Setup}{7}{subsection.10.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}Inference Speed}{7}{subsection.10.2}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Inference speed across representative models.}}{7}{table.caption.5}\protected@file@percent }
-\newlabel{tab:benchmark}{{4}{7}{Inference speed across representative models}{table.caption.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {10.3}Optimization Impact}{7}{subsection.10.3}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Cumulative speedup breakdown.}}{7}{table.caption.6}\protected@file@percent }
-\newlabel{tab:speedup}{{5}{7}{Cumulative speedup breakdown}{table.caption.6}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {10.4}Scaling Analysis}{7}{subsection.10.4}\protected@file@percent }
-\newlabel{eq:scaling}{{49}{7}{Scaling Analysis}{equation.49}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {10.5}Tokenizer Quality Impact}{7}{subsection.10.5}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Effect of BPE merges on tokenization correctness (Qwen2.5-0.5B).}}{7}{table.caption.7}\protected@file@percent }
-\newlabel{tab:tokenizer_quality}{{6}{7}{Effect of BPE merges on tokenization correctness (Qwen2.5-0.5B)}{table.caption.7}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {10.6}Text Quality}{7}{subsection.10.6}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Generated text from Qwen2.5-3B-Instruct.}}{7}{table.caption.8}\protected@file@percent }
-\newlabel{tab:quality}{{7}{7}{Generated text from Qwen2.5-3B-Instruct}{table.caption.8}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11}Discussion}{7}{section.11}\protected@file@percent }
-\newlabel{sec:discussion}{{11}{7}{Discussion}{section.11}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {12}Conclusion}{7}{section.12}\protected@file@percent }
-\newlabel{sec:conclusion}{{12}{7}{Conclusion}{section.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.2}Speculative Decoding}{10}{subsection.9.2}\protected@file@percent }
+\newlabel{eq:spec_speedup}{{45}{10}{Speculative Decoding Speedup \citep {leviathan2023speculative}}{equation.45}{}}
+\newlabel{eq:rejection}{{46}{10}{Speculative Decoding}{equation.46}{}}
+\newlabel{eq:adjusted}{{47}{10}{Speculative Decoding}{equation.47}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {9.3}Continuous Batching}{10}{subsection.9.3}\protected@file@percent }
+\newlabel{eq:scheduling}{{48}{10}{Iteration-Level Scheduling}{equation.48}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {10}Evaluation}{10}{section.10}\protected@file@percent }
+\newlabel{sec:evaluation}{{10}{10}{Evaluation}{section.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.1}Experimental Setup}{10}{subsection.10.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.2}Inference Speed}{10}{subsection.10.2}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {4}{\ignorespaces Inference speed across representative models.}}{10}{table.caption.4}\protected@file@percent }
+\newlabel{tab:benchmark}{{4}{10}{Inference speed across representative models}{table.caption.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.3}Optimization Impact}{11}{subsection.10.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {5}{\ignorespaces Cumulative speedup breakdown.}}{11}{table.caption.5}\protected@file@percent }
+\newlabel{tab:speedup}{{5}{11}{Cumulative speedup breakdown}{table.caption.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.4}Scaling Analysis}{11}{subsection.10.4}\protected@file@percent }
+\newlabel{eq:scaling}{{49}{11}{Scaling Analysis}{equation.49}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.5}Tokenizer Quality Impact}{11}{subsection.10.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6}{\ignorespaces Effect of BPE merges on tokenization correctness (Qwen2.5-0.5B).}}{11}{table.caption.6}\protected@file@percent }
+\newlabel{tab:tokenizer_quality}{{6}{11}{Effect of BPE merges on tokenization correctness (Qwen2.5-0.5B)}{table.caption.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {10.6}Text Quality}{11}{subsection.10.6}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7}{\ignorespaces Generated text from Qwen2.5-3B-Instruct.}}{11}{table.caption.7}\protected@file@percent }
+\newlabel{tab:quality}{{7}{11}{Generated text from Qwen2.5-3B-Instruct}{table.caption.7}{}}
 \bibstyle{plainnat}
 \bibcite{ainslie2023gqa}{{1}{2023}{{Ainslie et al.}}{{}}}
 \bibcite{ba2016layernorm}{{2}{2016}{{Ba et al.}}{{}}}
@@ -149,6 +145,10 @@
 \bibcite{kim2024squeezellm}{{11}{2024}{{Kim et al.}}{{}}}
 \bibcite{kwon2023vllm}{{12}{2023}{{Kwon et al.}}{{}}}
 \bibcite{leviathan2023speculative}{{13}{2023}{{Leviathan et al.}}{{}}}
+\@writefile{toc}{\contentsline {section}{\numberline {11}Discussion}{12}{section.11}\protected@file@percent }
+\newlabel{sec:discussion}{{11}{12}{Discussion}{section.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {12}Conclusion}{12}{section.12}\protected@file@percent }
+\newlabel{sec:conclusion}{{12}{12}{Conclusion}{section.12}{}}
 \bibcite{lin2024awq}{{14}{2024}{{Lin et al.}}{{}}}
 \bibcite{llamacpp2023}{{15}{2023}{{llama.cpp}}{{}}}
 \bibcite{mlcllm2023}{{16}{2023}{{MLC-LLM}}{{}}}
@@ -164,4 +164,4 @@
 \bibcite{vaswani2017attention}{{26}{2017}{{Vaswani et al.}}{{}}}
 \bibcite{zhang2019rmsnorm}{{27}{2019}{{Zhang \& Sennrich}}{{}}}
 \providecommand\NAT@force@numbers{}\NAT@force@numbers
-\gdef \@abspage@last{8}
+\gdef \@abspage@last{13}

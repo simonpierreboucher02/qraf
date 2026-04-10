@@ -1,10 +1,10 @@
-\documentclass[11pt,a4paper,twocolumn]{article}
+\documentclass[11pt,a4paper]{article}
 
 % ─── Packages ───
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[margin=0.75in]{geometry}
+\usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb,amsfonts,amsthm}
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -75,7 +75,6 @@
 
 \begin{document}
 
-\twocolumn[
 \maketitle
 \begin{abstract}
 We present \textbf{QRAF} (Quantized Runtime Artifact Format), a complete local large language model (LLM) inference runtime implemented from scratch in modern C++17. QRAF introduces a novel binary model format designed for memory-mapped, zero-copy tensor access with native quantization support, paired with an inference engine optimized for Apple Silicon processors (M1--M5). The system achieves a \textbf{41$\times$ speedup} over a scalar baseline through Apple Accelerate framework integration, ARM NEON SIMD kernels, and Grand Central Dispatch (GCD) multi-threading. QRAF supports 7 model architectures, includes a universal model converter supporting HuggingFace, GGUF, safetensors, and PyTorch formats, and implements LoRA adapter merging, KV cache quantization, speculative decoding, and continuous batching. We provide formal analysis of computational complexity, quantization error bounds, and throughput models. Evaluation on 26 models (70M--3B parameters) demonstrates inference speeds from 8.5 to 512 tokens per second on consumer hardware. All source code is released under the MIT license.
@@ -85,7 +84,6 @@ We present \textbf{QRAF} (Quantized Runtime Artifact Format), a complete local l
 \vspace{1em}
 \hrule
 \vspace{1em}
-]
 
 % ═══════════════════════════════════════════════════
 \section{Introduction}
