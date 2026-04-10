@@ -23,6 +23,46 @@ import sys
 import os
 import json
 import argparse
+import subprocess
+
+# ─── Dependency checker & auto-installer ───
+
+REQUIRED_PACKAGES = {
+    'numpy': 'numpy',
+    'torch': 'torch',
+    'transformers': 'transformers',
+    'safetensors': 'safetensors',
+    'sentencepiece': 'sentencepiece',
+}
+
+def check_and_install_deps():
+    """Check for required Python packages and offer to install them."""
+    missing = []
+    for module, pip_name in REQUIRED_PACKAGES.items():
+        try:
+            __import__(module)
+        except ImportError:
+            missing.append(pip_name)
+
+    if not missing:
+        return True
+
+    print(f"\n[QRAF] Missing Python dependencies: {', '.join(missing)}")
+    print(f"[QRAF] Installing automatically...\n")
+
+    cmd = [sys.executable, '-m', 'pip', 'install', '--quiet'] + missing
+    try:
+        subprocess.check_call(cmd)
+        print(f"\n[QRAF] Dependencies installed successfully.\n")
+        return True
+    except subprocess.CalledProcessError:
+        print(f"\n[QRAF] Auto-install failed. Please run manually:")
+        print(f"  pip3 install {' '.join(missing)}\n")
+        return False
+
+if not check_and_install_deps():
+    sys.exit(1)
+
 import numpy as np
 from pathlib import Path
 

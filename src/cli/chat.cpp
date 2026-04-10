@@ -52,7 +52,7 @@ struct ChatSession {
     double total_time_ms = 0.0;
 
     // Config
-    int max_tokens = 512;
+    int max_tokens = 200;
     float temperature = 0.7f;
     float top_p = 0.9f;
     int top_k = 40;
@@ -160,33 +160,59 @@ static int select_model(const std::string& models_dir, std::string& out_name, st
     return 0;
 }
 
+// ─── Chat Template Detection ───
+
+enum class ChatTemplate { GENERIC, CHATML, LLAMA, ALPACA };
+
+static ChatTemplate detect_template(const std::string& model_name) {
+    // Qwen models use ChatML format
+    if (model_name.find("qwen") != std::string::npos) return ChatTemplate::CHATML;
+    // Instruct models often use ChatML
+    if (model_name.find("instruct") != std::string::npos) return ChatTemplate::CHATML;
+    // SmolLM instruct uses ChatML
+    if (model_name.find("smollm") != std::string::npos &&
+        model_name.find("instruct") != std::string::npos) return ChatTemplate::CHATML;
+    // TinyLlama chat
+    if (model_name.find("tinyllama") != std::string::npos) return ChatTemplate::CHATML;
+    return ChatTemplate::GENERIC;
+}
+
 // ─── Build prompt with chat history ───
 
 static std::string build_prompt(const ChatSession& session) {
+    ChatTemplate tpl = detect_template(session.model_name);
+
     std::string prompt;
-
-    // System prompt
-    if (!session.system_prompt.empty()) {
-        prompt += session.system_prompt + "\n\n";
-    }
-
-    // Conversation history (keep last N turns to fit context)
     int start = 0;
     int history_size = static_cast<int>(session.history.size());
-    if (history_size > 10) {
-        start = history_size - 10; // keep last 5 turns (10 messages)
-    }
+    if (history_size > 8) start = history_size - 8;
 
-    for (int i = start; i < history_size; i++) {
-        const auto& msg = session.history[i];
-        if (msg.role == "user") {
-            prompt += "User: " + msg.content + "\n";
-        } else if (msg.role == "assistant") {
-            prompt += "Assistant: " + msg.content + "\n";
+    if (tpl == ChatTemplate::CHATML) {
+        // ChatML: <|im_start|>role\ncontent<|im_end|>\n
+        if (!session.system_prompt.empty()) {
+            prompt += "<|im_start|>system\n" + session.system_prompt + "<|im_end|>\n";
         }
+        for (int i = start; i < history_size; i++) {
+            const auto& msg = session.history[i];
+            prompt += "<|im_start|>" + msg.role + "\n" + msg.content + "<|im_end|>\n";
+        }
+        prompt += "<|im_start|>assistant\n";
+    } else {
+        // Generic format
+        if (!session.system_prompt.empty()) {
+            prompt += session.system_prompt + "\n\n";
+        }
+        for (int i = start; i < history_size; i++) {
+            const auto& msg = session.history[i];
+            if (msg.role == "user") {
+                prompt += "### User:\n" + msg.content + "\n\n";
+            } else {
+                prompt += "### Assistant:\n" + msg.content + "\n\n";
+            }
+        }
+        prompt += "### Assistant:\n";
     }
 
-    prompt += "Assistant:";
     return prompt;
 }
 
@@ -456,14 +482,35 @@ int cmd_chat_interactive(const std::string& models_dir) {
         // Print assistant header
         std::cout << "\n" << col::bold << col::magenta << "  Assistant" << col::reset << col::dim << " > " << col::reset;
 
-        // Stream generation
+        // Stream generation with stop-string detection
         std::string full_response;
+        bool stopped = false;
+        // Stop strings for different templates
+        std::vector<std::string> stop_strings = {
+            "<|im_end|>", "<|im_start|>", "### User:", "\nUser:", "\n### ",
+            "<|endoftext|>", "</s>"
+        };
+
         auto start = std::chrono::high_resolution_clock::now();
 
         auto result = session.engine.generate(prompt, config,
-            [&full_response](u32 /*token_id*/, const std::string& text) {
-                std::cout << text << std::flush;
+            [&full_response, &stopped, &stop_strings](u32 /*token_id*/, const std::string& text) {
+                if (stopped) return false;
                 full_response += text;
+
+                // Check if any stop string appears in the accumulated response
+                for (const auto& ss : stop_strings) {
+                    size_t pos = full_response.find(ss);
+                    if (pos != std::string::npos) {
+                        // Print only up to the stop string
+                        std::string clean = full_response.substr(0, pos);
+                        // We already printed some tokens, so just stop here
+                        stopped = true;
+                        return false;
+                    }
+                }
+
+                std::cout << text << std::flush;
                 return true;
             });
 

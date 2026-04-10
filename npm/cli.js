@@ -67,10 +67,37 @@ function runConvert() {
     console.log(`Output: ${output}`);
   }
 
+  // Check Python3 is available
+  try {
+    execSync('python3 --version', { stdio: 'ignore' });
+  } catch {
+    console.error('Error: Python 3 is required for model conversion.');
+    console.error('Install it: https://python.org/downloads/');
+    process.exit(1);
+  }
+
+  // Create models dir if -o target needs it
+  const oIdx = convertArgs.indexOf('-o');
+  if (oIdx >= 0 && oIdx + 1 < convertArgs.length) {
+    const outDir = path.dirname(convertArgs[oIdx + 1]);
+    if (outDir && !fs.existsSync(outDir)) {
+      fs.mkdirSync(outDir, { recursive: true });
+    }
+  }
+
   const proc = spawn('python3', [CONVERTER, ...convertArgs], { stdio: 'inherit' });
+  proc.on('error', (err) => {
+    if (err.code === 'ENOENT') {
+      console.error('Error: python3 not found in PATH');
+      console.error('Install Python 3: https://python.org/downloads/');
+    } else {
+      console.error(`Error: ${err.message}`);
+    }
+    process.exit(1);
+  });
   proc.on('close', (code) => {
     if (code === 0) {
-      console.log('\nConversion complete. Run: qraf chat');
+      console.log('\nConversion complete! Run: qraf chat');
     }
     process.exit(code || 0);
   });
