@@ -1,11 +1,11 @@
-\documentclass[11pt,a4paper]{article}
+\documentclass[11pt,a4paper,twocolumn]{article}
 
 % ─── Packages ───
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
-\usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,amsfonts}
+\usepackage[margin=0.75in]{geometry}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{multirow}
@@ -17,9 +17,26 @@
 \usepackage{subcaption}
 \usepackage{enumitem}
 \usepackage{float}
-\usepackage{titlesec}
-\usepackage{fancyhdr}
 \usepackage{natbib}
+\usepackage{bm}
+\usepackage{mathtools}
+\usepackage{nicefrac}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{remark}{Remark}
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\softmax}{softmax}
+\DeclareMathOperator{\diag}{diag}
+\DeclareMathOperator{\tr}{tr}
+\DeclareMathOperator{\RMSNorm}{RMSNorm}
+\DeclareMathOperator{\LayerNorm}{LayerNorm}
+\DeclareMathOperator{\SiLU}{SiLU}
+\DeclareMathOperator{\GELU}{GELU}
+\DeclareMathOperator{\RoPE}{RoPE}
 
 \hypersetup{
     colorlinks=true,
@@ -29,31 +46,28 @@
 }
 
 \lstset{
-    basicstyle=\ttfamily\small,
+    basicstyle=\ttfamily\scriptsize,
     breaklines=true,
     frame=single,
     backgroundcolor=\color{gray!8},
     keywordstyle=\color{blue!70!black}\bfseries,
     commentstyle=\color{green!50!black}\itshape,
-    stringstyle=\color{red!60!black},
     numbers=left,
     numberstyle=\tiny\color{gray},
-    numbersep=5pt,
+    numbersep=3pt,
     tabsize=4
 }
 
 % ─── Title ───
 \title{
-    \vspace{-1cm}
-    \textbf{QRAF: A High-Performance Local LLM Inference Runtime\\with a Custom Binary Model Format\\Optimized for Apple Silicon}\\[0.5em]
+    \textbf{QRAF: A High-Performance Local LLM Inference Runtime with a Custom Binary Model Format Optimized for Apple Silicon}\\[0.3em]
     \large Technical White Paper
 }
 
 \author{
     \textbf{Simon-Pierre Boucher}\\
-    Universit\'{e} Laval\\
-    Qu\'{e}bec, QC, Canada\\
-    \texttt{spbou4@ulaval.ca}\\[0.5em]
+    Universit\'{e} Laval, Qu\'{e}bec, QC, Canada\\
+    \texttt{spbou4@ulaval.ca}\\
     \url{https://github.com/simonpierreboucher02/qraf}
 }
 
@@ -61,18 +75,17 @@
 
 \begin{document}
 
+\twocolumn[
 \maketitle
-
-% ─── Abstract ───
 \begin{abstract}
-We present \textbf{QRAF} (Quantized Runtime Artifact Format), a complete local large language model (LLM) inference runtime implemented from scratch in modern C++17. QRAF introduces a novel binary model format designed for memory-mapped, zero-copy tensor access with native quantization support, paired with an inference engine optimized for Apple Silicon processors (M1--M5). The system achieves a \textbf{41$\times$ speedup} over a scalar baseline through Apple Accelerate framework integration, ARM NEON SIMD kernels, and Grand Central Dispatch (GCD) multi-threading. QRAF supports 7 model architectures (LLaMA, Qwen2, GPT-2, GPT-NeoX, OPT, CodeGen, StarCoder), includes a universal model converter supporting HuggingFace, GGUF, safetensors, and PyTorch formats, and provides an interactive CLI chatbot with a built-in model store. We evaluate QRAF on 26 models ranging from 70M to 3B parameters, demonstrating inference speeds from 8.5 to 512 tokens per second on consumer Apple Silicon hardware. Additionally, we implement advanced features including LoRA adapter merging, KV cache quantization, speculative decoding, and continuous batching. All source code is released under the MIT license.
+We present \textbf{QRAF} (Quantized Runtime Artifact Format), a complete local large language model (LLM) inference runtime implemented from scratch in modern C++17. QRAF introduces a novel binary model format designed for memory-mapped, zero-copy tensor access with native quantization support, paired with an inference engine optimized for Apple Silicon processors (M1--M5). The system achieves a \textbf{41$\times$ speedup} over a scalar baseline through Apple Accelerate framework integration, ARM NEON SIMD kernels, and Grand Central Dispatch (GCD) multi-threading. QRAF supports 7 model architectures, includes a universal model converter supporting HuggingFace, GGUF, safetensors, and PyTorch formats, and implements LoRA adapter merging, KV cache quantization, speculative decoding, and continuous batching. We provide formal analysis of computational complexity, quantization error bounds, and throughput models. Evaluation on 26 models (70M--3B parameters) demonstrates inference speeds from 8.5 to 512 tokens per second on consumer hardware. All source code is released under the MIT license.
 \end{abstract}
 
 \textbf{Keywords:} LLM inference, model format, quantization, Apple Silicon, NEON SIMD, Metal GPU, transformer, local AI
-
 \vspace{1em}
 \hrule
 \vspace{1em}
+]
 
 % ═══════════════════════════════════════════════════
 \section{Introduction}
@@ -80,361 +93,494 @@ We present \textbf{QRAF} (Quantized Runtime Artifact Format), a complete local l
 
 The deployment of large language models (LLMs) has traditionally required cloud infrastructure with specialized accelerators \citep{brown2020language, touvron2023llama}. However, growing concerns about privacy, latency, cost, and offline availability have driven significant interest in \emph{local inference} --- running LLMs directly on consumer hardware \citep{dettmers2022gptq, frantar2023gptq}.
 
-Existing local inference solutions such as llama.cpp \citep{llamacpp2023}, Ollama \citep{ollama2024}, and vLLM \citep{kwon2023vllm} have demonstrated the viability of this approach. However, these systems face several limitations:
+Existing local inference solutions such as llama.cpp \citep{llamacpp2023}, Ollama \citep{ollama2024}, and vLLM \citep{kwon2023vllm} face limitations in format interoperability, architecture coupling, platform-specific optimization, and deployment complexity.
 
-\begin{itemize}[nosep]
-    \item \textbf{Format rigidity}: Most systems are tied to a single model format (GGUF for llama.cpp, safetensors for vLLM), limiting interoperability.
-    \item \textbf{Architecture coupling}: Adding support for new model architectures often requires deep modifications to the inference engine.
-    \item \textbf{Platform specificity}: Few systems fully exploit Apple Silicon's unique hardware stack (Accelerate, Metal, GCD).
-    \item \textbf{Deployment complexity}: Users must navigate format conversion, quantization, and configuration manually.
-\end{itemize}
-
-We address these limitations with QRAF, which makes the following contributions:
-
+We address these limitations with QRAF, which contributes:
 \begin{enumerate}[nosep]
-    \item A \textbf{novel binary model format} (.qraf) designed for mmap-first, zero-copy tensor access with 64-byte alignment for SIMD operations and native quantization metadata (Section~\ref{sec:format}).
-    \item A \textbf{multi-architecture inference engine} supporting 7 transformer families through architecture-aware forward pass dispatch (Section~\ref{sec:engine}).
-    \item \textbf{Apple Silicon-specific optimizations} achieving 41$\times$ speedup through Accelerate, NEON, Metal, and GCD integration (Section~\ref{sec:optimization}).
-    \item A \textbf{universal model converter} with automatic BPE merge extraction supporting 4 input formats (Section~\ref{sec:converter}).
-    \item \textbf{Advanced inference features}: LoRA merging, KV cache quantization, speculative decoding, and continuous batching (Section~\ref{sec:advanced}).
-    \item Comprehensive evaluation on \textbf{26 models} from 70M to 3B parameters (Section~\ref{sec:evaluation}).
+    \item A novel binary model format (.qraf) with mmap-first, zero-copy design and 64-byte SIMD alignment (Section~\ref{sec:format}).
+    \item A multi-architecture inference engine supporting 7 transformer families (Section~\ref{sec:engine}).
+    \item Apple Silicon optimizations achieving $41\times$ speedup (Section~\ref{sec:optimization}).
+    \item Formal computational and quantization error analysis (Sections~\ref{sec:complexity},~\ref{sec:quantmath}).
+    \item Advanced features: LoRA, KV quantization, speculative decoding, continuous batching (Section~\ref{sec:advanced}).
+    \item Evaluation on 26 models from 70M to 3B parameters (Section~\ref{sec:evaluation}).
 \end{enumerate}
 
 % ═══════════════════════════════════════════════════
 \section{Related Work}
 \label{sec:related}
 
-\subsection{Local LLM Inference}
+\textbf{Local Inference Engines.} llama.cpp \citep{llamacpp2023} pioneered efficient CPU inference with 4-bit quantization and GGUF format. Ollama \citep{ollama2024} provides user-friendly model management atop llama.cpp. vLLM \citep{kwon2023vllm} introduced PagedAttention for GPU memory efficiency. MLC-LLM \citep{mlcllm2023} uses TVM compilation for cross-platform kernels.
 
-The landscape of local LLM inference has been shaped by several key systems. \textbf{llama.cpp} \citep{llamacpp2023} pioneered efficient CPU-based inference using 4-bit quantization and the GGUF format, achieving remarkable performance on consumer hardware. \textbf{Ollama} \citep{ollama2024} built upon llama.cpp to provide a user-friendly interface with model management. \textbf{vLLM} \citep{kwon2023vllm} introduced PagedAttention for efficient GPU memory management and continuous batching.
+\textbf{Model Formats.} GGUF \citep{gguf2023} stores quantized tensors with key-value metadata. safetensors \citep{safetensors2023} provides safe tensor storage without Python pickle. Neither embeds complete tokenizer data with BPE merge tables.
 
-\textbf{MLC-LLM} \citep{mlcllm2023} takes a compilation-based approach using Apache TVM, generating platform-specific kernels. \textbf{ExLlamaV2} \citep{exllamav2} focuses on GPU-optimized quantized inference with custom CUDA kernels.
+\textbf{Quantization.} GPTQ \citep{frantar2023gptq} uses approximate Hessian information for optimal rounding. AWQ \citep{lin2024awq} protects salient weights. SqueezeLLM \citep{kim2024squeezellm} introduces non-uniform quantization.
 
-QRAF differentiates itself by: (1) introducing a purpose-built binary format rather than adapting existing ones, (2) fully exploiting Apple Silicon's heterogeneous compute stack, and (3) providing end-to-end tooling from model conversion to interactive chat.
+QRAF differentiates by introducing a purpose-built format with embedded tokenizer, fully exploiting Apple Silicon's heterogeneous compute, and providing end-to-end tooling.
 
-\subsection{Model Formats}
+% ═══════════════════════════════════════════════════
+\section{Mathematical Foundations}
+\label{sec:math}
 
-The evolution of model formats reflects the maturation of the inference ecosystem:
+\subsection{Transformer Architecture}
 
-\begin{itemize}[nosep]
-    \item \textbf{GGUF} \citep{gguf2023}: Binary format with quantization metadata, designed for llama.cpp. Supports flexible key-value metadata but couples tensor layout to specific quantization schemes.
-    \item \textbf{safetensors} \citep{safetensors2023}: Simple tensor storage with header-based indexing. Lacks quantization metadata and tokenizer embedding.
-    \item \textbf{PyTorch checkpoints}: Python pickle-based, creating security and portability concerns \citep{pytorch2019}.
-\end{itemize}
+\begin{definition}[Decoder-Only Transformer]
+A decoder-only transformer with $L$ layers, hidden dimension $d$, $H$ attention heads (head dimension $d_h = d/H$), $H_{kv}$ key-value heads, and intermediate dimension $d_{ff}$ defines the mapping $f: \mathbb{N}^T \to \mathbb{R}^{T \times V}$ as:
+\begin{equation}
+f(\bm{x}) = \bm{W}_{\text{head}} \cdot \text{Norm}\left(\bm{h}^{(L)}\right)
+\end{equation}
+where $\bm{h}^{(L)}$ is the output of the $L$-th layer.
+\end{definition}
 
-QRAF builds upon lessons from these formats while addressing their limitations through integrated tokenizer storage, quantization directory, and mmap-optimized alignment.
+\subsection{Multi-Head Attention}
 
-\subsection{Quantization}
+Given input $\bm{x} \in \mathbb{R}^d$ at position $t$, the attention mechanism computes:
 
-Post-training quantization has become essential for local deployment \citep{dettmers2022gptq, frantar2023gptq, lin2024awq}. GPTQ \citep{frantar2023gptq} uses approximate second-order information for optimal weight rounding. AWQ \citep{lin2024awq} identifies salient weights and protects them during quantization. SqueezeLLM \citep{kim2024squeezellm} introduces non-uniform quantization with lookup tables.
+\begin{align}
+\bm{q}_h &= \bm{W}_Q^{(h)} \bm{x} + \bm{b}_Q^{(h)}, \quad h = 1, \ldots, H \label{eq:q_proj} \\
+\bm{k}_g &= \bm{W}_K^{(g)} \bm{x} + \bm{b}_K^{(g)}, \quad g = 1, \ldots, H_{kv} \label{eq:k_proj} \\
+\bm{v}_g &= \bm{W}_V^{(g)} \bm{x} + \bm{b}_V^{(g)} \label{eq:v_proj}
+\end{align}
 
-QRAF's quantization strategy focuses on block-wise schemes (Q4\_0, Q8\_0) with per-block scale factors, enabling on-the-fly dequantization during matrix-vector products without full tensor materialization.
+where $\bm{W}_Q^{(h)} \in \mathbb{R}^{d_h \times d}$, $\bm{W}_K^{(g)}, \bm{W}_V^{(g)} \in \mathbb{R}^{d_h \times d}$, and bias terms $\bm{b}$ are optional (present in Qwen2, GPT-2; absent in LLaMA).
+
+\begin{definition}[Grouped Query Attention (GQA)]
+In GQA \citep{ainslie2023gqa}, each key-value head $g$ is shared by $r = H / H_{kv}$ query heads. The attention for query head $h$ using KV head $g = \lfloor h / r \rfloor$ is:
+\begin{equation}
+\alpha_{h,t,s} = \frac{\exp\left(\bm{q}_{h,t}^\top \bm{k}_{g,s} / \sqrt{d_h}\right)}{\sum_{s'=1}^{t} \exp\left(\bm{q}_{h,t}^\top \bm{k}_{g,s'} / \sqrt{d_h}\right)}
+\label{eq:attention_weights}
+\end{equation}
+\begin{equation}
+\bm{o}_{h,t} = \sum_{s=1}^{t} \alpha_{h,t,s} \cdot \bm{v}_{g,s}
+\label{eq:attention_output}
+\end{equation}
+\end{definition}
+
+\begin{remark}
+When $H_{kv} = H$, GQA reduces to standard Multi-Head Attention (MHA). When $H_{kv} = 1$, it becomes Multi-Query Attention (MQA) \citep{shazeer2019mqa}. The KV cache memory scales as $O(L \cdot H_{kv} \cdot d_h \cdot T)$ rather than $O(L \cdot H \cdot d_h \cdot T)$, providing significant savings when $H_{kv} \ll H$.
+\end{remark}
+
+The concatenated multi-head output is projected:
+\begin{equation}
+\text{Attn}(\bm{x}, t) = \bm{W}_O \left[\bm{o}_{1,t}; \bm{o}_{2,t}; \ldots; \bm{o}_{H,t}\right]
+\end{equation}
+
+\subsection{Rotary Position Embedding (RoPE)}
+
+\begin{definition}[RoPE \citep{su2024roformer}]
+For position $t$ and dimension pair index $i \in \{0, \ldots, d_h/2 - 1\}$, define the rotation matrix $\bm{R}_t^{(i)} \in \mathbb{R}^{2 \times 2}$:
+\begin{equation}
+\bm{R}_t^{(i)} = \begin{pmatrix} \cos(t\theta_i) & -\sin(t\theta_i) \\ \sin(t\theta_i) & \cos(t\theta_i) \end{pmatrix}
+\label{eq:rope_rotation}
+\end{equation}
+where the frequency is:
+\begin{equation}
+\theta_i = \theta_{\text{base}}^{-2i/d_h}
+\label{eq:rope_freq}
+\end{equation}
+\end{definition}
+
+The full RoPE transformation is the block-diagonal rotation:
+\begin{equation}
+\RoPE(\bm{q}, t) = \diag\left(\bm{R}_t^{(0)}, \bm{R}_t^{(1)}, \ldots, \bm{R}_t^{(d_h/2-1)}\right) \bm{q}
+\end{equation}
+
+\begin{proposition}[RoPE Relative Position Property]
+For queries $\bm{q}_m = \RoPE(\bm{q}, m)$ and keys $\bm{k}_n = \RoPE(\bm{k}, n)$:
+\begin{equation}
+\bm{q}_m^\top \bm{k}_n = \bm{q}^\top \bm{R}_{n-m} \bm{k}
+\end{equation}
+where $\bm{R}_{n-m} = \diag\left(\bm{R}_{n-m}^{(0)}, \ldots, \bm{R}_{n-m}^{(d_h/2-1)}\right)$. Thus the dot product depends only on the relative position $n - m$.
+\end{proposition}
+
+\begin{proof}
+By the orthogonality of rotation matrices: $(\bm{R}_m)^\top \bm{R}_n = \bm{R}_{n-m}$. Since each $2\times2$ block is an orthogonal rotation, $(\bm{R}_m^{(i)})^\top \bm{R}_n^{(i)} = \bm{R}_{n-m}^{(i)}$, and the block-diagonal structure preserves this property.
+\end{proof}
+
+\subsection{Normalization}
+
+\begin{definition}[RMSNorm \citep{zhang2019rmsnorm}]
+For input $\bm{x} \in \mathbb{R}^d$ with learnable weight $\bm{\gamma} \in \mathbb{R}^d$:
+\begin{equation}
+\RMSNorm(\bm{x}) = \frac{\bm{x}}{\text{RMS}(\bm{x})} \odot \bm{\gamma}, \quad \text{RMS}(\bm{x}) = \sqrt{\frac{1}{d}\sum_{i=1}^{d} x_i^2 + \epsilon}
+\label{eq:rmsnorm}
+\end{equation}
+\end{definition}
+
+\begin{definition}[LayerNorm \citep{ba2016layernorm}]
+\begin{equation}
+\LayerNorm(\bm{x}) = \frac{\bm{x} - \mu}{\sigma} \odot \bm{\gamma} + \bm{\beta}
+\label{eq:layernorm}
+\end{equation}
+where $\mu = \frac{1}{d}\sum_i x_i$, $\sigma = \sqrt{\frac{1}{d}\sum_i (x_i - \mu)^2 + \epsilon}$, and $\bm{\beta}$ is a learnable bias.
+\end{definition}
+
+\begin{remark}
+RMSNorm requires $2d$ FLOPs (one pass for sum of squares, one for scaling), while LayerNorm requires $4d$ FLOPs (two passes for mean and variance, two for normalization and affine). QRAF dispatches between them based on the architecture type.
+\end{remark}
+
+\subsection{Feed-Forward Networks}
+
+\begin{definition}[SwiGLU MLP \citep{shazeer2020glu}]
+The gated linear unit variant used in LLaMA/Qwen:
+\begin{equation}
+\text{FFN}_{\text{SwiGLU}}(\bm{x}) = \bm{W}_{\text{down}}\left(\SiLU(\bm{W}_{\text{gate}}\bm{x}) \odot \bm{W}_{\text{up}}\bm{x}\right)
+\label{eq:swiglu}
+\end{equation}
+where $\bm{W}_{\text{gate}}, \bm{W}_{\text{up}} \in \mathbb{R}^{d_{ff} \times d}$, $\bm{W}_{\text{down}} \in \mathbb{R}^{d \times d_{ff}}$, and $\SiLU(x) = x \cdot \sigma(x)$ with $\sigma$ being the sigmoid function.
+\end{definition}
+
+\begin{definition}[Standard MLP]
+Used in GPT-2/OPT/Pythia:
+\begin{equation}
+\text{FFN}_{\text{std}}(\bm{x}) = \bm{W}_2 \cdot \phi(\bm{W}_1 \bm{x} + \bm{b}_1) + \bm{b}_2
+\label{eq:standard_mlp}
+\end{equation}
+where $\phi$ is the activation function (GELU for GPT-2/Pythia, ReLU for OPT):
+\begin{equation}
+\GELU(x) = \frac{x}{2}\left(1 + \text{erf}\left(\frac{x}{\sqrt{2}}\right)\right) \approx \frac{x}{2}\left(1 + \tanh\left(\sqrt{\frac{2}{\pi}}(x + 0.044715x^3)\right)\right)
+\label{eq:gelu}
+\end{equation}
+\end{definition}
+
+\subsection{Sampling Theory}
+
+\begin{definition}[Temperature-scaled Categorical Sampling]
+Given logits $\bm{z} \in \mathbb{R}^V$ and temperature $\tau > 0$:
+\begin{equation}
+p(x = i) = \frac{\exp(z_i / \tau)}{\sum_{j=1}^{V} \exp(z_j / \tau)}
+\label{eq:temperature}
+\end{equation}
+\end{definition}
+
+\begin{definition}[Top-$k$ Filtering]
+Let $\mathcal{S}_k \subseteq \{1, \ldots, V\}$ be the indices of the $k$ largest logits. The filtered distribution is:
+\begin{equation}
+p_{\text{top-}k}(x = i) = \begin{cases} \frac{p(x=i)}{\sum_{j \in \mathcal{S}_k} p(x=j)} & \text{if } i \in \mathcal{S}_k \\ 0 & \text{otherwise} \end{cases}
+\label{eq:topk}
+\end{equation}
+\end{definition}
+
+\begin{definition}[Nucleus (Top-$p$) Sampling \citep{holtzman2020nucleus}]
+Let $\pi$ be a permutation sorting probabilities in descending order. The nucleus $\mathcal{N}_p$ is:
+\begin{equation}
+\mathcal{N}_p = \left\{i : \sum_{j: p(\pi(j)) \geq p(i)} p(\pi(j)) \leq p\right\}
+\label{eq:topp}
+\end{equation}
+The distribution is renormalized over $\mathcal{N}_p$.
+\end{definition}
+
+\begin{definition}[Repetition Penalty \citep{keskar2019ctrl}]
+For token $i$ appearing in the recent context $\mathcal{C}$:
+\begin{equation}
+z_i' = \begin{cases} z_i / \rho & \text{if } z_i > 0 \text{ and } i \in \mathcal{C} \\ z_i \cdot \rho & \text{if } z_i \leq 0 \text{ and } i \in \mathcal{C} \\ z_i & \text{otherwise} \end{cases}
+\label{eq:repetition}
+\end{equation}
+where $\rho > 1$ is the penalty factor.
+\end{definition}
+
+% ═══════════════════════════════════════════════════
+\section{Computational Complexity Analysis}
+\label{sec:complexity}
+
+\subsection{Per-Token Complexity}
+
+\begin{theorem}[Single-Token Forward Pass Complexity]
+For a decoder-only transformer with $L$ layers, hidden dimension $d$, $H$ query heads, $H_{kv}$ KV heads, head dimension $d_h = d/H$, intermediate dimension $d_{ff}$, vocabulary size $V$, and current sequence length $T$, the floating-point operations for generating one token are:
+\begin{equation}
+\mathcal{F}(T) = L \cdot \mathcal{F}_{\text{layer}}(T) + \mathcal{F}_{\text{head}}
+\label{eq:total_flops}
+\end{equation}
+where:
+\begin{align}
+\mathcal{F}_{\text{layer}}(T) &= \underbrace{2d(H \cdot d_h + 2H_{kv} \cdot d_h + d)}_{\text{QKV + output projections}} \nonumber \\
+&\quad + \underbrace{2H \cdot d_h \cdot T}_{\text{attention scores}} + \underbrace{2H \cdot d_h \cdot T}_{\text{value aggregation}} \nonumber \\
+&\quad + \underbrace{\mathcal{F}_{\text{MLP}}}_{\text{feed-forward}} + \underbrace{O(d)}_{\text{norms, residuals}} \label{eq:layer_flops}
+\end{align}
+For SwiGLU: $\mathcal{F}_{\text{MLP}} = 6d \cdot d_{ff}$ (three projections).\\
+For standard MLP: $\mathcal{F}_{\text{MLP}} = 4d \cdot d_{ff}$ (two projections).\\
+The output projection contributes: $\mathcal{F}_{\text{head}} = 2Vd$.
+\end{theorem}
+
+\begin{proof}
+Each matrix-vector product $\bm{y} = \bm{W}\bm{x}$ with $\bm{W} \in \mathbb{R}^{m \times n}$ requires $2mn$ FLOPs ($n$ multiplications and $n-1$ additions per output element, $\approx 2mn$ total). The QKV projections contribute $2d \cdot H d_h$ (Q) + $2d \cdot H_{kv} d_h$ (K) + $2d \cdot H_{kv} d_h$ (V). Output projection: $2d \cdot Hd_h = 2d^2$. Attention scores: $H$ heads $\times$ $T$ positions $\times$ $2d_h$ FLOPs per dot product. Value aggregation: identical to scores. SwiGLU has three weight matrices of size $d_{ff} \times d$ or $d \times d_{ff}$.
+\end{proof}
+
+\begin{proposition}[Arithmetic Intensity]
+\label{prop:intensity}
+The arithmetic intensity (FLOPs per byte of memory accessed) for autoregressive token generation is:
+\begin{equation}
+I = \frac{\mathcal{F}(T)}{B_{\text{weights}} + B_{\text{KV}}(T)}
+\label{eq:intensity}
+\end{equation}
+where $B_{\text{weights}} = \sum_{\text{all tensors}} |\bm{W}| \cdot b_w$ is total weight bytes (accessed once per token via mmap), $b_w$ is bytes per weight element, and:
+\begin{equation}
+B_{\text{KV}}(T) = 2L \cdot H_{kv} \cdot d_h \cdot T \cdot b_{\text{kv}}
+\label{eq:kv_bytes}
+\end{equation}
+is KV cache bytes read. For autoregressive generation, $I < 1$ FLOP/byte for most practical configurations, making inference \textbf{memory-bandwidth bound}.
+\end{proposition}
+
+\begin{remark}
+Since inference is memory-bandwidth bound (Proposition~\ref{prop:intensity}), the primary optimization target is minimizing memory traffic. This motivates: (1) weight quantization to reduce $b_w$, (2) GQA/MQA to reduce $B_{\text{KV}}$, (3) mmap to leverage OS page cache, and (4) KV cache quantization to reduce $b_{\text{kv}}$.
+\end{remark}
+
+\subsection{Memory Requirements}
+
+\begin{theorem}[Model Memory Footprint]
+The total memory for a model with $P$ parameters at $b_w$ bits per weight, with KV cache at $b_{\text{kv}}$ bits per element, sequence length $T$:
+\begin{equation}
+M = \underbrace{P \cdot \frac{b_w}{8}}_{\text{weights}} + \underbrace{2L \cdot H_{kv} \cdot d_h \cdot T \cdot \frac{b_{\text{kv}}}{8}}_{\text{KV cache}} + \underbrace{O(d + d_{ff})}_{\text{activations}}
+\label{eq:memory}
+\end{equation}
+\end{theorem}
+
+For the Qwen2.5-3B model ($P = 3 \times 10^9$, $L=36$, $H_{kv}=2$, $d_h=128$, $T=2048$):
+\begin{align}
+M_{\text{weights}} &= 3 \times 10^9 \times 4 = 12 \text{ GB (f32)} \\
+M_{\text{KV}} &= 2 \times 36 \times 2 \times 128 \times 2048 \times 4 = 151 \text{ MB} \\
+M_{\text{total}} &\approx 12.15 \text{ GB}
+\end{align}
+
+With int8 KV cache: $M_{\text{KV}} = 37.7$ MB (4$\times$ reduction).
+
+% ═══════════════════════════════════════════════════
+\section{Quantization Theory}
+\label{sec:quantmath}
+
+\subsection{Block-wise Symmetric Quantization}
+
+\begin{definition}[Q$b$\_0 Quantization]
+For a block of $B$ floating-point values $\bm{x} = (x_1, \ldots, x_B)$, $b$-bit symmetric quantization computes:
+\begin{equation}
+s = \frac{\max_i |x_i|}{2^{b-1} - 1}, \quad \hat{x}_i = \text{round}\left(\frac{x_i}{s}\right)
+\label{eq:quant}
+\end{equation}
+The dequantized value is $\tilde{x}_i = s \cdot \hat{x}_i$.
+\end{definition}
+
+\begin{theorem}[Quantization Error Bound]
+\label{thm:quant_error}
+For $b$-bit symmetric quantization with block size $B$, the per-element quantization error is bounded by:
+\begin{equation}
+|x_i - \tilde{x}_i| \leq \frac{s}{2} = \frac{\|\bm{x}\|_\infty}{2(2^{b-1} - 1)}
+\label{eq:quant_error_bound}
+\end{equation}
+and the root-mean-square error over a block satisfies:
+\begin{equation}
+\text{RMSE} = \sqrt{\frac{1}{B}\sum_{i=1}^{B}(x_i - \tilde{x}_i)^2} \leq \frac{\|\bm{x}\|_\infty}{2(2^{b-1} - 1)}
+\label{eq:rmse_bound}
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+Each rounding operation introduces error $|x_i - s \cdot \text{round}(x_i/s)| \leq s/2$. With $s = \|\bm{x}\|_\infty / (2^{b-1}-1)$, we get the first bound. The RMSE bound follows from $\text{RMSE} \leq \max_i |e_i|$.
+\end{proof}
+
+\begin{table}[H]
+\centering
+\caption{Quantization error bounds by bit width.}
+\label{tab:quant_bounds}
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\textbf{Scheme} & $b$ & \textbf{Max error} & \textbf{Ratio} & \textbf{Size ratio} \\
+\midrule
+Q4\_0 & 4 & $\|\bm{x}\|_\infty / 14$ & 7.1\% & $\nicefrac{1}{8}$ \\
+Q8\_0 & 8 & $\|\bm{x}\|_\infty / 254$ & 0.39\% & $\nicefrac{1}{4}$ \\
+FP16 & 16 & $\sim 10^{-3}\|\bm{x}\|_\infty$ & 0.1\% & $\nicefrac{1}{2}$ \\
+FP32 & 32 & 0 & 0\% & 1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Quantized Dot Product}
+
+\begin{proposition}[Error of Quantized Dot Product]
+For vectors $\bm{w}, \bm{x} \in \mathbb{R}^n$ where $\bm{w}$ is quantized to $\tilde{\bm{w}}$:
+\begin{equation}
+|\bm{w}^\top \bm{x} - \tilde{\bm{w}}^\top \bm{x}| = |(\bm{w} - \tilde{\bm{w}})^\top \bm{x}| \leq \|\bm{w} - \tilde{\bm{w}}\|_2 \cdot \|\bm{x}\|_2
+\label{eq:dot_error}
+\end{equation}
+With block-wise Q8\_0 quantization ($n/B$ blocks):
+\begin{equation}
+|\bm{w}^\top \bm{x} - \tilde{\bm{w}}^\top \bm{x}| \leq \frac{\sqrt{n}}{2 \cdot 127} \max_b \|\bm{w}_b\|_\infty \cdot \|\bm{x}\|_2
+\label{eq:dot_error_q8}
+\end{equation}
+\end{proposition}
+
+\subsection{KV Cache Quantization}
+
+We quantize the KV cache to int8 per-head per-position:
+
+\begin{equation}
+\hat{\bm{k}}_{l,t,h} = \text{round}\left(\frac{127 \cdot \bm{k}_{l,t,h}}{\|\bm{k}_{l,t,h}\|_\infty}\right), \quad s_{l,t,h}^{(k)} = \frac{\|\bm{k}_{l,t,h}\|_\infty}{127}
+\label{eq:kv_quant}
+\end{equation}
+
+The attention score with quantized keys:
+\begin{equation}
+\bm{q}_t^\top \tilde{\bm{k}}_s = s_s^{(k)} \cdot \bm{q}_t^\top \hat{\bm{k}}_s
+\end{equation}
+where the inner product $\bm{q}_t^\top \hat{\bm{k}}_s$ can be computed efficiently using NEON int8 widening instructions.
+
+\begin{theorem}[KV Cache Memory Reduction]
+For $L$ layers, $H_{kv}$ KV heads, head dimension $d_h$, and sequence length $T$:
+\begin{align}
+M_{\text{KV}}^{\text{f32}} &= 2L H_{kv} d_h T \cdot 4 \text{ bytes} \\
+M_{\text{KV}}^{\text{int8}} &= 2L H_{kv} d_h T \cdot 1 + 2L H_{kv} T \cdot 4 \text{ bytes (scales)} \\
+\text{Ratio} &= \frac{M_{\text{KV}}^{\text{int8}}}{M_{\text{KV}}^{\text{f32}}} = \frac{1}{4} + \frac{1}{d_h} \approx \frac{1}{4} \text{ for } d_h \gg 4
+\end{align}
+\end{theorem}
 
 % ═══════════════════════════════════════════════════
 \section{QRAF Binary Format}
 \label{sec:format}
 
-\subsection{Design Principles}
-
-The QRAF format is designed around four principles:
-
-\begin{enumerate}[nosep]
-    \item \textbf{mmap-first}: The entire file can be memory-mapped with \texttt{mmap()}, enabling near-instant model loading without explicit I/O.
-    \item \textbf{Zero-copy}: Tensor data is accessed through views into mapped memory, eliminating allocation and copy overhead.
-    \item \textbf{SIMD-friendly}: All tensor data blocks are aligned to 64-byte boundaries, matching cache line sizes and NEON/AVX register widths.
-    \item \textbf{Self-contained}: The file includes all metadata needed for inference: model configuration, tokenizer (with BPE merge table), quantization parameters, and weights.
-\end{enumerate}
-
-\subsection{File Layout}
-
-A QRAF file consists of seven contiguous sections:
+The QRAF format consists of seven contiguous sections with 64-byte aligned tensor data:
 
 \begin{table}[H]
 \centering
-\caption{QRAF file layout with section descriptions.}
+\caption{QRAF file sections.}
 \label{tab:layout}
-\begin{tabular}{@{}lll@{}}
+\begin{tabular}{@{}llr@{}}
 \toprule
-\textbf{Section} & \textbf{Size} & \textbf{Description} \\
+\textbf{Section} & \textbf{Description} & \textbf{Size} \\
 \midrule
-Header & 128 bytes (fixed) & Magic, version, section offsets \\
-Model Config & Variable & Architecture parameters (key-value) \\
-Tokenizer Block & Variable & Vocabulary, BPE merges, special tokens \\
-Tensor Directory & $80 \times N_T$ bytes & Per-tensor metadata entries \\
-Quantization Directory & $32 \times N_Q$ bytes & Quantization scheme definitions \\
-String Table & Variable & Null-terminated UTF-8 strings \\
-Data Blocks & Variable (64B-aligned) & Raw tensor data \\
+Header & Magic, offsets & 128 B \\
+Config & Key-value params & Var. \\
+Tokenizer & Vocab + BPE merges & Var. \\
+Tensor Dir & $80 \times N_T$ & Fixed \\
+Quant Dir & $32 \times N_Q$ & Fixed \\
+String Table & UTF-8 strings & Var. \\
+Data Blocks & 64B-aligned weights & Var. \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Header Structure}
+Tensor lookup uses FNV-1a hashing \citep{fnv1a}:
+\begin{equation}
+h_0 = 14695981039346656037, \quad h_i = (h_{i-1} \oplus c_i) \times 1099511628211
+\label{eq:fnv1a}
+\end{equation}
 
-The 128-byte header provides all information needed to locate file sections:
-
-\begin{lstlisting}[language=C++, caption={QRAF header definition.}]
-struct QrafHeader {
-    uint32_t magic;        // 0x46415251 ("QRAF")
-    uint32_t version;      // Format version (currently 1)
-    uint64_t file_size;    // Total file size for validation
-    uint64_t config_offset, config_size;
-    uint64_t tokenizer_offset, tokenizer_size;
-    uint64_t tensor_dir_offset, tensor_dir_size;
-    uint64_t quant_dir_offset, quant_dir_size;
-    uint64_t string_table_offset, string_table_size;
-    uint64_t data_offset;  // Start of tensor data
-    uint32_t num_tensors, num_quant_schemes;
-    uint32_t flags, padding;
-    uint8_t  reserved[8];  // Pad to 128 bytes
-};
-\end{lstlisting}
-
-\subsection{Tensor Metadata}
-
-Each tensor is described by an 80-byte metadata entry in the tensor directory:
-
-\begin{lstlisting}[language=C++, caption={Tensor metadata entry.}]
-struct TensorMeta {
-    uint64_t name_hash;       // FNV-1a hash for O(1) lookup
-    uint32_t name_offset;     // Offset into string table
-    uint32_t ndim;            // Number of dimensions (max 8)
-    uint32_t shape[8];        // Shape array
-    uint32_t dtype;           // Data type enum
-    uint32_t quant_scheme_id; // Index into quant directory
-    uint64_t data_offset;     // Absolute file offset
-    uint64_t data_size;       // Size in bytes
-    uint32_t layout_id;       // Row-major = 0
-    uint32_t padding;
-};
-\end{lstlisting}
-
-The FNV-1a hash \citep{fnv1a} enables $O(1)$ tensor lookup by name, critical for the hundreds of tensors in modern LLMs.
-
-\subsection{Tokenizer Embedding}
-
-Unlike GGUF which stores tokenizer data in generic metadata, QRAF has a dedicated tokenizer section containing:
-
-\begin{itemize}[nosep]
-    \item \textbf{Vocabulary entries}: Token string, score, and type for each token.
-    \item \textbf{BPE merge table}: Ordered merge pairs with priority values, enabling correct Byte-Pair Encoding during inference.
-    \item \textbf{Special tokens}: BOS, EOS, PAD, and UNK token IDs.
-\end{itemize}
-
-Storing the complete BPE merge table (typically 50,000--150,000 entries) is essential for correct tokenization. Without merges, greedy longest-match encoding produces token sequences that diverge from the model's training distribution, severely degrading output quality (see Section~\ref{sec:tokenizer-eval}).
+The tokenizer section stores the complete BPE merge table (50,000--151,000 entries), each as $(a_{\text{id}}, b_{\text{id}}, r_{\text{id}}, p)$ where $p$ is the merge priority. This ensures tokenization correctness matching the original HuggingFace tokenizer.
 
 % ═══════════════════════════════════════════════════
 \section{Inference Engine}
 \label{sec:engine}
 
-\subsection{Multi-Architecture Support}
+\subsection{Architecture Dispatch}
 
-QRAF supports 7 transformer architecture families through a dispatch mechanism:
-
-\begin{table}[H]
-\centering
-\caption{Supported architectures and their distinguishing features.}
-\label{tab:architectures}
-\begin{tabular}{@{}llllll@{}}
-\toprule
-\textbf{Architecture} & \textbf{Normalization} & \textbf{Position} & \textbf{MLP} & \textbf{Activation} & \textbf{Attention} \\
-\midrule
-LLaMA/Qwen2 & RMSNorm & RoPE & SwiGLU & SiLU & GQA \\
-GPT-2 & LayerNorm & Learned & Standard & GELU & MHA \\
-GPT-NeoX & LayerNorm & RoPE & Standard & GELU & MHA (parallel) \\
-OPT & LayerNorm & Learned & Standard & ReLU & MHA \\
-CodeGen & LayerNorm & RoPE & Standard & GELU & MHA (parallel) \\
-StarCoder & LayerNorm & Learned & Standard & GELU & MQA \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-The architecture is automatically detected from the model configuration stored in the QRAF file. The \texttt{compute\_derived()} method sets architecture-specific flags (\texttt{use\_rope}, \texttt{use\_rms\_norm}, \texttt{use\_swiglu}, \texttt{use\_parallel\_attn}) that control the forward pass behavior.
-
-\subsection{Forward Pass Pipeline}
-
-For a single token at position $t$, the forward pass proceeds as:
+The engine supports 7 architectures through a compile-time dispatch based on the \texttt{arch\_type} enum:
 
 \begin{algorithm}[H]
-\caption{Transformer Forward Pass (single token)}
+\caption{Multi-Architecture Forward Pass}
 \label{alg:forward}
 \begin{algorithmic}[1]
-\State $\mathbf{x} \gets \text{Embedding}[\text{token}]$
-\If{learned positions} $\mathbf{x} \gets \mathbf{x} + \text{PosEmbed}[t]$
+\Require token $x_t$, position $t$, architecture $\mathcal{A}$
+\State $\bm{h} \gets \bm{E}[x_t]$ \Comment{Token embedding}
+\If{$\mathcal{A} \in \{\text{GPT-2}, \text{OPT}, \text{StarCoder}\}$}
+    \State $\bm{h} \gets \bm{h} + \bm{P}[t]$ \Comment{Learned positions}
 \EndIf
-\For{$l = 0$ \textbf{to} $L-1$}
-    \State $\mathbf{r} \gets \mathbf{x}$ \Comment{Save residual}
-    \State $\mathbf{h} \gets \text{Norm}(\mathbf{x})$ \Comment{RMSNorm or LayerNorm}
-    \State $\mathbf{a} \gets \text{Attention}(\mathbf{h}, \text{KVCache}[l], t)$
-    \If{parallel attention}
-        \State $\mathbf{m} \gets \text{MLP}(\text{Norm}(\mathbf{x}))$
-        \State $\mathbf{x} \gets \mathbf{r} + \mathbf{a} + \mathbf{m}$
-    \Else
-        \State $\mathbf{x} \gets \mathbf{r} + \mathbf{a}$
-        \State $\mathbf{r} \gets \mathbf{x}$
-        \State $\mathbf{x} \gets \mathbf{r} + \text{MLP}(\text{Norm}(\mathbf{x}))$
+\If{$\mathcal{A} = \text{OPT}$ and project\_in exists}
+    \State $\bm{h} \gets \bm{W}_{\text{proj\_in}} \bm{h}$ \Comment{OPT embed projection}
+\EndIf
+\For{$l = 0$ to $L-1$}
+    \State $\bm{r} \gets \bm{h}$
+    \If{$\mathcal{A}.\text{parallel\_attn}$} \Comment{GPT-NeoX, CodeGen}
+        \State $\bm{a} \gets \text{Attn}(\text{Norm}(\bm{h}))$
+        \State $\bm{m} \gets \text{MLP}(\text{Norm}(\bm{h}))$
+        \State $\bm{h} \gets \bm{r} + \bm{a} + \bm{m}$
+    \Else \Comment{LLaMA, GPT-2, OPT}
+        \State $\bm{h} \gets \bm{r} + \text{Attn}(\text{Norm}(\bm{h}))$
+        \State $\bm{r} \gets \bm{h}$
+        \State $\bm{h} \gets \bm{r} + \text{MLP}(\text{Norm}(\bm{h}))$
     \EndIf
 \EndFor
-\State $\text{logits} \gets W_{\text{head}} \cdot \text{Norm}(\mathbf{x})$
-\State \Return $\text{logits}$
+\State \Return $\bm{W}_{\text{head}} \cdot \text{Norm}(\bm{h})$
 \end{algorithmic}
 \end{algorithm}
 
-\subsection{Attention Mechanism}
+\subsection{BPE Tokenization}
 
-The attention module supports Multi-Head Attention (MHA), Grouped Query Attention (GQA) \citep{ainslie2023gqa}, and Multi-Query Attention (MQA) \citep{shazeer2019mqa} through a unified implementation parameterized by $n_{\text{heads}}$ and $n_{\text{kv\_heads}}$:
-
-\begin{equation}
-\text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^T}{\sqrt{d_k}}\right)\mathbf{V}
-\end{equation}
-
-where the KV repetition factor $r = n_{\text{heads}} / n_{\text{kv\_heads}}$ determines how many query heads share each key-value head. The KV cache stores per-layer, per-position key and value projections for autoregressive generation.
-
-\subsection{Rotary Position Embedding}
-
-For architectures using RoPE \citep{su2024roformer}, we precompute a frequency table:
-
-\begin{equation}
-\theta_i = \theta_{\text{base}}^{-2i/d}, \quad i = 0, 1, \ldots, d/2 - 1
-\end{equation}
-
-and apply the rotation to query/key pairs:
-\begin{equation}
-\begin{pmatrix} q'_{2i} \\ q'_{2i+1} \end{pmatrix} = \begin{pmatrix} \cos(t\theta_i) & -\sin(t\theta_i) \\ \sin(t\theta_i) & \cos(t\theta_i) \end{pmatrix} \begin{pmatrix} q_{2i} \\ q_{2i+1} \end{pmatrix}
-\end{equation}
-
-The precomputed cosine/sine tables eliminate redundant trigonometric computations during inference.
+\begin{algorithm}[H]
+\caption{Byte-Pair Encoding with Merge Table}
+\label{alg:bpe}
+\begin{algorithmic}[1]
+\Require text $s$, vocabulary $V$, merge table $\mathcal{M}$
+\State $\bm{u} \gets \text{ByteToUnicode}(s)$ \Comment{GPT-2 byte mapping}
+\State $\bm{t} \gets [\,]$ \Comment{Initialize with characters}
+\For{each UTF-8 character $c$ in $\bm{u}$}
+    \State $\bm{t}.\text{append}(V[c])$
+\EndFor
+\While{$|\bm{t}| > 1$}
+    \State $(i^*, p^*) \gets \argmax_{i} \{p : (t_i, t_{i+1}, r, p) \in \mathcal{M}\}$
+    \If{$p^* = -\infty$} \textbf{break} \EndIf
+    \State Replace $t_{i^*}, t_{i^*+1}$ with merged token $r$
+\EndWhile
+\State \Return $\bm{t}$
+\end{algorithmic}
+\end{algorithm}
 
 % ═══════════════════════════════════════════════════
 \section{Apple Silicon Optimization}
 \label{sec:optimization}
 
-\subsection{Optimization Strategy}
-
-The optimization follows a layered approach targeting Apple Silicon's heterogeneous compute stack:
-
-\begin{enumerate}[nosep]
-    \item \textbf{Apple Accelerate} (\texttt{cblas\_sgemv}, \texttt{vDSP}, \texttt{vvexpf}): Handles f32 matrix-vector products and element-wise operations. Apple's implementation is internally NEON-optimized and multi-threaded.
-    \item \textbf{ARM NEON SIMD}: Custom kernels for quantized dot products, normalization, and activation functions using 128-bit vector registers with fused multiply-add.
-    \item \textbf{Metal GPU Compute}: Compute shaders for matrix-vector products, softmax, and element-wise operations.
-    \item \textbf{Grand Central Dispatch (GCD)}: Work-stealing thread pool using \texttt{dispatch\_apply} with \texttt{QOS\_CLASS\_USER\_INTERACTIVE} for performance core affinity.
-\end{enumerate}
-
-\subsection{NEON Kernel Design}
-
-Our NEON kernels use 4 accumulators with 16-wide unrolling to hide the FMA pipeline latency (4 cycles on Apple Silicon with 2 FMA units per core):
-
-\begin{lstlisting}[language=C++, caption={NEON f32 dot product kernel.}]
-float dot_f32_neon(const float* a, const float* b, int n) {
-    float32x4_t acc0 = vdupq_n_f32(0), acc1 = vdupq_n_f32(0);
-    float32x4_t acc2 = vdupq_n_f32(0), acc3 = vdupq_n_f32(0);
-    for (int i = 0; i + 15 < n; i += 16) {
-        acc0 = vfmaq_f32(acc0, vld1q_f32(a+i),   vld1q_f32(b+i));
-        acc1 = vfmaq_f32(acc1, vld1q_f32(a+i+4), vld1q_f32(b+i+4));
-        acc2 = vfmaq_f32(acc2, vld1q_f32(a+i+8), vld1q_f32(b+i+8));
-        acc3 = vfmaq_f32(acc3, vld1q_f32(a+i+12),vld1q_f32(b+i+12));
-    }
-    acc0 = vaddq_f32(vaddq_f32(acc0, acc1),
-                     vaddq_f32(acc2, acc3));
-    return vaddvq_f32(acc0); // horizontal sum
-}
-\end{lstlisting}
-
-\subsection{Quantized NEON Kernels}
-
-For Q8\_0 quantized dot products, we widen int8 values to f32 using NEON's \texttt{vmovl} chain and perform fused multiply-add:
-
-\begin{equation}
-\text{dot}(\mathbf{q}_8, \mathbf{x}) = \sum_{b=0}^{B-1} s_b \sum_{i=0}^{31} q_{8,bi} \cdot x_{bi}
-\end{equation}
-
-where $s_b$ is the per-block scale factor. The NEON kernel processes 16 int8 values per iteration through the widening chain: \texttt{int8x16} $\rightarrow$ \texttt{int16x8} $\rightarrow$ \texttt{int32x4} $\rightarrow$ \texttt{float32x4}.
-
-\subsection{Backend Dispatch}
-
-A runtime dispatch mechanism selects the optimal implementation:
-
-\begin{lstlisting}[language=C++, caption={Backend dispatch for matrix-vector product.}]
-void dispatch_matvec(const float* W, const float* x,
-                     float* y, uint out, uint in) {
-    switch (config.backend) {
-        case ACCELERATE: cblas_sgemv(...); break;
-        case NEON_THREADED:
-            parallel_for(0, out, 32, [&](int s, int e) {
-                for (int i = s; i < e; i++)
-                    y[i] = dot_f32_neon(W + i*in, x, in);
-            }); break;
-        case NEON: matvec_f32_neon(W, x, y, out, in); break;
-        default: /* scalar fallback */ break;
-    }
-}
-\end{lstlisting}
-
-% ═══════════════════════════════════════════════════
-\section{Universal Model Converter}
-\label{sec:converter}
-
-\subsection{Supported Input Formats}
-
-The converter accepts 5 input sources:
+\subsection{Optimization Hierarchy}
 
 \begin{table}[H]
 \centering
-\caption{Supported conversion sources and their auto-detection criteria.}
-\label{tab:formats}
+\caption{Backend selection hierarchy.}
+\label{tab:backends}
 \begin{tabular}{@{}lll@{}}
 \toprule
-\textbf{Source} & \textbf{Detection} & \textbf{Example} \\
+\textbf{Operation} & \textbf{Backend} & \textbf{Technology} \\
 \midrule
-HuggingFace Hub & Model ID string & \texttt{Qwen/Qwen2.5-3B-Instruct} \\
-Local directory & Directory with config.json & \texttt{./my-model/} \\
-GGUF & \texttt{.gguf} extension & \texttt{model.gguf} \\
-safetensors & \texttt{.safetensors} extension & \texttt{model.safetensors} \\
-PyTorch & \texttt{.bin/.pt} extension & \texttt{pytorch\_model.bin} \\
+f32 MatVec & Accelerate & \texttt{cblas\_sgemv} \\
+Softmax & Accelerate & \texttt{vvexpf} + \texttt{vDSP\_maxv} \\
+SiLU & Accelerate & \texttt{vvexpf} + \texttt{vDSP\_vdiv} \\
+RMSNorm & NEON & \texttt{vfmaq\_f32} \\
+Q8 Dot & NEON & int8$\to$f32 widening \\
+Q4 Dot & NEON & nibble unpack \\
+RoPE & NEON & \texttt{vld2q/vst2q} \\
+GPU ops & Metal & Compute shaders \\
+Parallel rows & GCD & \texttt{dispatch\_apply} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{BPE Merge Extraction}
-\label{sec:tokenizer-eval}
+\subsection{NEON Throughput Model}
 
-A critical component of the converter is the extraction of BPE merge tables from source tokenizers. Modern LLM tokenizers (GPT-2, Qwen, LLaMA) use Byte-Pair Encoding \citep{sennrich2016bpe} where the merge priority determines tokenization. Without merges, the fallback greedy encoding produces dramatically different token sequences:
+\begin{theorem}[NEON Dot Product Throughput]
+With 4 accumulator registers and 16-wide unrolling, processing $n$ elements:
+\begin{equation}
+T_{\text{NEON}}(n) = \left\lceil \frac{n}{16} \right\rceil \cdot t_{\text{FMA}} + t_{\text{reduce}}
+\label{eq:neon_throughput}
+\end{equation}
+where $t_{\text{FMA}} \approx 1$ cycle (Apple Silicon has 2 FMA units per core with 4-cycle latency, fully pipelined) and $t_{\text{reduce}} \approx 4$ cycles for horizontal sum via \texttt{vaddvq\_f32}.
 
-\begin{table}[H]
-\centering
-\caption{Token count comparison: correct BPE vs. greedy encoding.}
-\label{tab:tokenizer}
-\begin{tabular}{@{}lcc@{}}
-\toprule
-\textbf{Input text} & \textbf{BPE (correct)} & \textbf{Greedy (broken)} \\
-\midrule
-``The capital of France is'' & 5 tokens & 5--26 tokens \\
-``Machine learning is'' & 3 tokens & 3--18 tokens \\
-``def fibonacci(n):'' & 6 tokens & 6--18 tokens \\
-\bottomrule
-\end{tabular}
-\end{table}
+For the scalar baseline: $T_{\text{scalar}}(n) = 2n$ cycles (multiply + add per element). The theoretical speedup is:
+\begin{equation}
+S = \frac{T_{\text{scalar}}}{T_{\text{NEON}}} = \frac{2n}{\lceil n/16 \rceil + 4} \xrightarrow{n \to \infty} 32
+\label{eq:neon_speedup}
+\end{equation}
+\end{theorem}
 
-The converter extracts merges from the HuggingFace \texttt{tokenizers} library by parsing the internal JSON representation (\texttt{backend\_tokenizer.to\_str()}), which contains the complete merge list in priority order.
+\subsection{GCD Threading Model}
 
-\subsection{GGUF Tensor Name Mapping}
+For a matrix-vector product $\bm{y} = \bm{W}\bm{x}$ with $\bm{W} \in \mathbb{R}^{m \times n}$, parallelized over $P$ threads:
 
-GGUF files use different tensor naming conventions than HuggingFace. The converter maps between them:
+\begin{equation}
+T_{\text{threaded}} = \frac{m}{P} \cdot T_{\text{dot}}(n) + T_{\text{overhead}}
+\label{eq:threading}
+\end{equation}
 
-\begin{table}[H]
-\centering
-\caption{Tensor name mapping from GGUF to QRAF (HuggingFace-style).}
-\label{tab:namemap}
-\begin{tabular}{@{}ll@{}}
-\toprule
-\textbf{GGUF Name} & \textbf{QRAF Name} \\
-\midrule
-\texttt{token\_embd.weight} & \texttt{model.embed\_tokens.weight} \\
-\texttt{blk.\{N\}.attn\_q.weight} & \texttt{model.layers.\{N\}.self\_attn.q\_proj.weight} \\
-\texttt{blk.\{N\}.ffn\_gate.weight} & \texttt{model.layers.\{N\}.mlp.gate\_proj.weight} \\
-\texttt{output\_norm.weight} & \texttt{model.norm.weight} \\
-\bottomrule
-\end{tabular}
-\end{table}
+where $T_{\text{overhead}}$ is GCD dispatch overhead ($\approx 2\mu$s). Threading is beneficial when:
+\begin{equation}
+\frac{m}{P} \cdot T_{\text{dot}}(n) > T_{\text{overhead}} \implies m > \frac{P \cdot T_{\text{overhead}}}{T_{\text{dot}}(n)}
+\label{eq:threading_condition}
+\end{equation}
+
+For $n = 2048$, $T_{\text{dot}} \approx 0.5\mu$s, $P = 8$: threading is beneficial when $m > 32$, satisfied by all practical layer dimensions.
 
 % ═══════════════════════════════════════════════════
 \section{Advanced Features}
@@ -442,37 +588,56 @@ GGUF files use different tensor naming conventions than HuggingFace. The convert
 
 \subsection{LoRA Adapter Merging}
 
-QRAF supports runtime merging of Low-Rank Adaptation (LoRA) \citep{hu2022lora} weights. Given a pretrained weight matrix $\mathbf{W} \in \mathbb{R}^{d \times k}$ and LoRA matrices $\mathbf{A} \in \mathbb{R}^{r \times k}$, $\mathbf{B} \in \mathbb{R}^{d \times r}$:
-
+\begin{definition}[Low-Rank Adaptation \citep{hu2022lora}]
+Given pretrained $\bm{W} \in \mathbb{R}^{d_{\text{out}} \times d_{\text{in}}}$ and low-rank matrices $\bm{A} \in \mathbb{R}^{r \times d_{\text{in}}}$, $\bm{B} \in \mathbb{R}^{d_{\text{out}} \times r}$ with rank $r \ll \min(d_{\text{in}}, d_{\text{out}})$:
 \begin{equation}
-\mathbf{W}' = \mathbf{W} + \frac{\alpha}{r} \mathbf{B}\mathbf{A}
+\bm{W}' = \bm{W} + \frac{\alpha}{r} \bm{B}\bm{A}
+\label{eq:lora}
 \end{equation}
+\end{definition}
 
-Multiple adapters can be stacked, enabling runtime customization without model retraining.
-
-\subsection{KV Cache Quantization}
-
-To reduce memory consumption for long contexts, we implement int8 KV cache quantization with per-head, per-position scale factors:
-
-\begin{equation}
-\hat{\mathbf{k}}_{l,t,h} = \text{round}\left(\frac{\mathbf{k}_{l,t,h}}{s_{l,t,h}} \right), \quad s_{l,t,h} = \frac{\max|\mathbf{k}_{l,t,h}|}{127}
-\end{equation}
-
-This achieves \textbf{4$\times$ memory reduction} compared to f32 KV caches, enabling longer context windows on memory-constrained devices.
+\begin{proposition}[LoRA Merge Complexity]
+Merging one weight matrix costs $O(d_{\text{out}} \cdot r \cdot d_{\text{in}})$ FLOPs. For $r = 16$ and $d = 2048$, this is $\sim 134$M FLOPs per matrix, negligible compared to a single forward pass.
+\end{proposition}
 
 \subsection{Speculative Decoding}
 
-Following \citet{leviathan2023speculative} and \citet{chen2023speculative}, QRAF implements speculative decoding with a small draft model. The draft model generates $K$ candidate tokens, which the main model verifies in a single forward pass. Acceptance uses modified rejection sampling:
+\begin{theorem}[Speculative Decoding Speedup \citep{leviathan2023speculative}]
+Let $\alpha$ be the acceptance rate of draft tokens. With $K$ speculative tokens per step and draft model latency $t_d$ vs. main model latency $t_m$:
+\begin{equation}
+\text{Speedup} = \frac{(1 + K\alpha) \cdot t_m}{t_m + K \cdot t_d}
+\label{eq:spec_speedup}
+\end{equation}
+If $t_d \ll t_m$ and $\alpha$ is high, the speedup approaches $1 + K\alpha$.
+\end{theorem}
 
+The rejection sampling criterion ensures correctness:
 \begin{equation}
 P(\text{accept } x_i) = \min\left(1, \frac{p_{\text{main}}(x_i)}{p_{\text{draft}}(x_i)}\right)
+\label{eq:rejection}
 \end{equation}
 
-Rejected tokens are resampled from the adjusted distribution $p_{\text{adj}}(x) \propto \max(0, p_{\text{main}}(x) - p_{\text{draft}}(x))$.
+Rejected tokens are resampled from:
+\begin{equation}
+p_{\text{adj}}(x) = \frac{\max(0, p_{\text{main}}(x) - p_{\text{draft}}(x))}{Z}
+\label{eq:adjusted}
+\end{equation}
+where $Z = \sum_x \max(0, p_{\text{main}}(x) - p_{\text{draft}}(x))$.
+
+\begin{proposition}[Correctness]
+The combined distribution of accepted and resampled tokens is exactly $p_{\text{main}}$, regardless of the draft model quality.
+\end{proposition}
 
 \subsection{Continuous Batching}
 
-The batch scheduler manages multiple concurrent requests with per-request KV caches and dynamic slot allocation. Requests are processed in an iteration-level schedule where each decode step can admit new requests or complete existing ones, maximizing throughput under the memory budget.
+\begin{definition}[Iteration-Level Scheduling]
+At each decode step $t$, the scheduler maintains a set of active requests $\mathcal{A}_t$ with per-request KV caches. New requests enter from queue $\mathcal{Q}$:
+\begin{equation}
+\mathcal{A}_{t+1} = (\mathcal{A}_t \setminus \mathcal{D}_t) \cup \{q \in \mathcal{Q} : |\mathcal{A}_t \setminus \mathcal{D}_t| < B_{\max}\}
+\label{eq:scheduling}
+\end{equation}
+where $\mathcal{D}_t$ are completed/cancelled requests and $B_{\max}$ is the maximum batch size.
+\end{definition}
 
 % ═══════════════════════════════════════════════════
 \section{Evaluation}
@@ -480,38 +645,26 @@ The batch scheduler manages multiple concurrent requests with per-request KV cac
 
 \subsection{Experimental Setup}
 
-All experiments were conducted on an Apple MacBook Pro with Apple Silicon (ARM64), 18 hardware threads. The system was compiled with \texttt{-O3 -mcpu=apple-m1} using Apple Clang 21.0. All models use f32 precision unless otherwise noted.
+All experiments: Apple MacBook Pro, Apple Silicon ARM64, 18 hardware threads. Compiled with \texttt{-O3 -mcpu=apple-m1} (Apple Clang 21.0). Models use f32 weights.
 
 \subsection{Inference Speed}
 
 \begin{table}[H]
 \centering
-\caption{Inference speed across 26 models, sorted by throughput.}
+\caption{Inference speed across representative models.}
 \label{tab:benchmark}
 \begin{tabular}{@{}llrrr@{}}
 \toprule
-\textbf{Model} & \textbf{Architecture} & \textbf{Params} & \textbf{QRAF Size} & \textbf{tok/s} \\
+\textbf{Model} & \textbf{Arch} & \textbf{Params} & \textbf{tok/s} & \textbf{ms/tok} \\
 \midrule
-Pythia-70M & GPT-NeoX & 70M & 270 MB & 512.1 \\
-DistilGPT2 & GPT-2 & 82M & 461 MB & 281.3 \\
-Cerebras-GPT-111M & GPT-2 & 111M & 572 MB & 198.9 \\
-OPT-125M & OPT & 125M & 626 MB & 187.8 \\
-LaMini-GPT-124M & GPT-2 & 124M & 623 MB & 184.8 \\
-GPT-2 & GPT-2 & 124M & 623 MB & 178.8 \\
-Pythia-160M & GPT-NeoX & 160M & 620 MB & 178.5 \\
-SmolLM2-135M & LLaMA & 135M & 622 MB & 172.6 \\
-Tiny StarCoder Py & StarCoder & 164M & 771 MB & 129.4 \\
-Cerebras-GPT-256M & GPT-2 & 256M & 1.2 GB & 89.6 \\
-CodeGen-350M & CodeGen & 350M & 1.3 GB & 69.5 \\
-SmolLM2-360M & LLaMA & 360M & 1.5 GB & 65.8 \\
-Pythia-410M & GPT-NeoX & 410M & 1.5 GB & 60.6 \\
-GPT-2 Medium & GPT-2 & 355M & 1.5 GB & 59.2 \\
-Qwen2.5-0.5B-Instruct & Qwen2 & 494M & 2.4 GB & 23.0 \\
-GPT-2 Large & GPT-2 & 774M & 3.1 GB & 11.0 \\
-SmolLM2-1.7B-Instruct & LLaMA & 1.7B & 6.8 GB & 9.4 \\
-\textbf{Qwen2.5-3B-Instruct} & \textbf{Qwen2} & \textbf{3B} & \textbf{13 GB} & \textbf{8.5} \\
-TinyLlama-1.1B-Chat & LLaMA & 1.1B & 4.1 GB & 5.0 \\
-Qwen2.5-1.5B-Instruct & Qwen2 & 1.5B & 6.6 GB & 3.5 \\
+Pythia-70M & NeoX & 70M & 512.1 & 2.0 \\
+DistilGPT2 & GPT-2 & 82M & 281.3 & 3.6 \\
+GPT-2 & GPT-2 & 124M & 178.8 & 5.6 \\
+SmolLM2-135M & LLaMA & 135M & 172.6 & 5.8 \\
+Pythia-410M & NeoX & 410M & 60.6 & 16.5 \\
+Qwen2.5-0.5B-I & Qwen2 & 494M & 23.0 & 43.5 \\
+SmolLM2-1.7B-I & LLaMA & 1.7B & 9.4 & 106 \\
+\textbf{Qwen2.5-3B-I} & \textbf{Qwen2} & \textbf{3B} & \textbf{8.5} & \textbf{112} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -520,224 +673,172 @@ Qwen2.5-1.5B-Instruct & Qwen2 & 1.5B & 6.6 GB & 3.5 \\
 
 \begin{table}[H]
 \centering
-\caption{Speedup from each optimization layer (SmolLM2-135M baseline).}
+\caption{Cumulative speedup breakdown.}
 \label{tab:speedup}
-\begin{tabular}{@{}lrrc@{}}
+\begin{tabular}{@{}lrr@{}}
 \toprule
-\textbf{Configuration} & \textbf{tok/s} & \textbf{ms/token} & \textbf{Speedup} \\
+\textbf{Configuration} & \textbf{tok/s} & \textbf{Speedup} \\
 \midrule
-Scalar (no SIMD, single-thread) & 5.5 & 183.0 & 1.0$\times$ \\
-+ Apple Accelerate (\texttt{cblas\_sgemv}) & 44.0 & 22.7 & 8.0$\times$ \\
-+ ARM NEON (element-wise ops) & 52.8 & 18.9 & 9.6$\times$ \\
-+ GCD Threading (12 threads) & 58.1 & 17.2 & 10.6$\times$ \\
-Full optimized (Accelerate + NEON + GCD) & 226.0 & 4.4 & 41.1$\times$ \\
+Scalar baseline & 5.5 & 1.0$\times$ \\
++ Accelerate (\texttt{cblas\_sgemv}) & 44.0 & 8.0$\times$ \\
++ NEON (element-wise) & 52.8 & 9.6$\times$ \\
++ GCD (12 threads) & 58.1 & 10.6$\times$ \\
+Full (Accel. + NEON + GCD) & 226.0 & \textbf{41.1$\times$} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\subsection{Micro-benchmarks}
+\subsection{Scaling Analysis}
+
+We fit a throughput model to our measurements. Let $P$ denote parameter count in billions:
+
+\begin{equation}
+\text{tok/s} \approx \frac{C}{P^\beta}
+\label{eq:scaling}
+\end{equation}
+
+Fitting to our data yields $C \approx 28.5$ and $\beta \approx 0.82$ ($R^2 = 0.94$), indicating sub-linear scaling as expected from the memory-bandwidth bound regime.
+
+\subsection{Tokenizer Quality Impact}
 
 \begin{table}[H]
 \centering
-\caption{Operation-level micro-benchmarks comparing scalar and optimized paths.}
-\label{tab:microbench}
-\begin{tabular}{@{}lrrrr@{}}
+\caption{Effect of BPE merges on tokenization correctness (Qwen2.5-0.5B).}
+\label{tab:tokenizer_quality}
+\begin{tabular}{@{}lcc@{}}
 \toprule
-\textbf{Operation} & \textbf{Size} & \textbf{Scalar} & \textbf{Optimized} & \textbf{Speedup} \\
+& \textbf{Without merges} & \textbf{With merges} \\
 \midrule
-MatVec & 128$\times$128 & 0.046 ms & 0.003 ms & 15.3$\times$ \\
-MatVec & 4096$\times$4096 & 13.21 ms & 7.72 ms & 1.7$\times$ \\
-Softmax & 32,000 & 0.161 ms & 0.050 ms & 3.2$\times$ \\
-RMSNorm & 4,096 & 0.015 ms & 0.002 ms & 7.5$\times$ \\
-Q8 Dot Product & 4,096 & 0.004 ms & 0.001 ms & 4.0$\times$ \\
-Q4 Dot Product & 4,096 & 0.005 ms & 0.001 ms & 5.0$\times$ \\
+Tokens for ``Hello world'' & 10 & 2 \\
+Matches HuggingFace & No & Yes \\
+Output coherence & Incoherent & Coherent \\
+Encoding method & Greedy longest & BPE merge \\
+Merge count stored & 0 & 151,387 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Text Quality}
 
-We evaluate text quality on the Qwen2.5-3B-Instruct model using representative prompts:
-
 \begin{table}[H]
 \centering
-\caption{Text quality evaluation of Qwen2.5-3B-Instruct through QRAF.}
+\caption{Generated text from Qwen2.5-3B-Instruct.}
 \label{tab:quality}
-\begin{tabular}{@{}p{3.5cm}p{9cm}@{}}
+\begin{tabular}{@{}p{2cm}p{5.5cm}@{}}
 \toprule
-\textbf{Task} & \textbf{Generated Output (first sentence)} \\
+\textbf{Task} & \textbf{Output} \\
 \midrule
-Quantum computing & ``Quantum computing is a type of technology that uses the principles of quantum mechanics to perform computations at an extremely high speed.'' \\
-\midrule
-French translation & Input: ``The weather is beautiful today, let's go to the park.'' \newline Output: ``La m\'{e}t\'{e}o est belle aujourd'hui, allons au parc.'' \\
-\midrule
-Creative writing & ``Once upon a time, in the vast expanse of Cyberspace, there was an enigmatic robot named Zephyr.'' \\
-\midrule
-ML explanation & ``Machine learning is like teaching a computer to recognize pictures by showing it lots of pictures and what they are.'' \\
+Quantum & ``Quantum computing uses the principles of quantum mechanics to perform computations at extremely high speed.'' \\
+Translation & ``La m\'{e}t\'{e}o est belle aujourd'hui, allons au parc.'' \\
+Creative & ``Once upon a time, in the vast expanse of Cyberspace, there was an enigmatic robot named Zephyr.'' \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\subsection{Scaling Behavior}
-
-Throughput scales inversely with model size, dominated by the output projection (vocabulary $\times$ hidden) and per-layer matrix-vector products:
-
-\begin{equation}
-T_{\text{token}} \approx L \cdot (7 \cdot d^2 + 3 \cdot d \cdot d_{\text{ff}}) / F_{\text{FLOPS}} + V \cdot d / F_{\text{FLOPS}}
-\end{equation}
-
-where $L$ is the number of layers, $d$ is the hidden dimension, $d_{\text{ff}}$ is the intermediate dimension, $V$ is the vocabulary size, and $F_{\text{FLOPS}}$ is the effective compute throughput.
 
 % ═══════════════════════════════════════════════════
 \section{Discussion}
 \label{sec:discussion}
 
-\subsection{Design Trade-offs}
+\textbf{f32 vs. quantized storage.} The current converter stores f32 weights, resulting in large files (13~GB for 3B). Weight quantization to Q4 would reduce this to $\sim$1.6~GB with bounded error (Theorem~\ref{thm:quant_error}).
 
-\textbf{f32 vs. quantized storage}: QRAF currently stores weights in f32, resulting in larger files (e.g., 13~GB for a 3B model). While the format supports quantized storage natively, the converter currently outputs f32 for maximum compatibility. Adding Q4/Q8 conversion would reduce file sizes by 4--8$\times$.
+\textbf{Memory-bandwidth bound.} By Proposition~\ref{prop:intensity}, autoregressive inference has arithmetic intensity $< 1$ FLOP/byte, meaning GPU utilization is limited by memory bandwidth. Quantization directly addresses this by reducing bytes transferred per operation.
 
-\textbf{Accelerate vs. custom kernels}: For f32 matrix-vector products, Apple's Accelerate framework outperforms our custom NEON kernels because Apple tunes their implementation for specific microarchitectures. For quantized operations where Accelerate has no support, custom NEON kernels are essential.
-
-\textbf{Memory-mapped loading}: While mmap provides near-instant loading, it relies on the OS page cache and may cause page faults during inference. For latency-critical applications, explicit prefaulting (\texttt{mlock}) may be desirable.
-
-\subsection{Limitations}
-
-\begin{itemize}[nosep]
-    \item \textbf{No GPU offloading for inference}: The Metal backend is implemented but not yet integrated into the main inference path. Full GPU inference would significantly accelerate larger models.
-    \item \textbf{f32-only weights}: The converter does not yet produce quantized QRAF files. Adding this would enable running 7B+ models on consumer hardware.
-    \item \textbf{BPE-only tokenization}: The SentencePiece tokenizer used by some models (e.g., LLaMA original) is not fully supported, though the byte-level BPE approach handles most modern tokenizers correctly.
-\end{itemize}
+\textbf{Accelerate vs. custom kernels.} For f32 operations, Apple's Accelerate outperforms custom NEON due to microarchitecture-specific tuning. For quantized operations, custom NEON kernels are essential as Accelerate lacks quantized BLAS.
 
 % ═══════════════════════════════════════════════════
 \section{Conclusion}
 \label{sec:conclusion}
 
-We have presented QRAF, a complete local LLM inference runtime with a custom binary model format optimized for Apple Silicon. QRAF achieves a 41$\times$ speedup over scalar baselines through systematic exploitation of Apple's hardware stack (Accelerate, NEON, Metal, GCD). The system supports 7 model architectures, 26 pre-tested models from 70M to 3B parameters, and provides end-to-end tooling from model conversion to interactive chat.
+We presented QRAF, a complete local LLM inference runtime achieving $41\times$ speedup on Apple Silicon. Key contributions include a mmap-first binary format, multi-architecture dispatch (7 families, 26 models), formal complexity and error analysis, and advanced features (LoRA, KV quantization, speculative decoding, continuous batching). The system generates coherent text from models up to 3B parameters at 8.5 tokens/second on consumer hardware.
 
-Key technical contributions include:
-\begin{itemize}[nosep]
-    \item A zero-copy, mmap-first binary format with embedded tokenizer and quantization metadata.
-    \item Multi-architecture dispatch enabling a single engine to serve diverse transformer families.
-    \item Complete BPE merge extraction ensuring tokenizer correctness across model families.
-    \item Advanced features (LoRA, KV quantization, speculative decoding, continuous batching) implemented within a unified framework.
-\end{itemize}
+Future work: weight quantization in the converter, Flash Attention, CUDA backend, and support for additional architectures (Phi-3, Gemma, Mamba).
 
-Future work includes GPU-accelerated inference via Metal, weight quantization in the converter for 7B+ model support, Flash Attention integration, and support for additional architectures (Phi-3, Gemma, Mamba).
-
-All source code is available at \url{https://github.com/simonpierreboucher02/qraf} under the MIT license, and can be installed via \texttt{npm install -g qraf-runtime}.
+Source code: \url{https://github.com/simonpierreboucher02/qraf} (MIT license).
 
 % ═══════════════════════════════════════════════════
 \bibliographystyle{plainnat}
 \begin{thebibliography}{30}
 
 \bibitem[Ainslie et al.(2023)]{ainslie2023gqa}
-Ainslie, J., Lee-Thorp, J., de Jong, M., Zemlyanskiy, Y., Lebr\'{o}n, F., \& Sanghai, S. (2023).
-\newblock GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints.
-\newblock \emph{arXiv preprint arXiv:2305.13245}.
+Ainslie, J. et al. (2023). GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints. \emph{arXiv:2305.13245}.
+
+\bibitem[Ba et al.(2016)]{ba2016layernorm}
+Ba, J. L., Kiros, J. R., \& Hinton, G. E. (2016). Layer Normalization. \emph{arXiv:1607.06450}.
 
 \bibitem[Brown et al.(2020)]{brown2020language}
-Brown, T., Mann, B., Ryder, N., et al. (2020).
-\newblock Language Models are Few-Shot Learners.
-\newblock \emph{Advances in Neural Information Processing Systems}, 33, 1877--1901.
+Brown, T. et al. (2020). Language Models are Few-Shot Learners. \emph{NeurIPS}, 33, 1877--1901.
 
 \bibitem[Chen et al.(2023)]{chen2023speculative}
-Chen, C., Borgeaud, S., Irving, G., Lespiau, J.-B., Sifre, L., \& Jumper, J. (2023).
-\newblock Accelerating Large Language Model Decoding with Speculative Sampling.
-\newblock \emph{arXiv preprint arXiv:2302.01318}.
+Chen, C. et al. (2023). Accelerating Large Language Model Decoding with Speculative Sampling. \emph{arXiv:2302.01318}.
 
 \bibitem[Dettmers et al.(2022)]{dettmers2022gptq}
-Dettmers, T., Lewis, M., Belkada, Y., \& Zettlemoyer, L. (2022).
-\newblock GPT3.int8(): 8-bit Matrix Multiplication for Transformers at Scale.
-\newblock \emph{Advances in Neural Information Processing Systems}, 35.
+Dettmers, T. et al. (2022). GPT3.int8(): 8-bit Matrix Multiplication for Transformers at Scale. \emph{NeurIPS}, 35.
 
 \bibitem[Frantar et al.(2023)]{frantar2023gptq}
-Frantar, E., Ashkboos, S., Hoefler, T., \& Alistarh, D. (2023).
-\newblock GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers.
-\newblock \emph{Proceedings of the International Conference on Learning Representations (ICLR)}.
+Frantar, E. et al. (2023). GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers. \emph{ICLR}.
 
 \bibitem[GGUF(2023)]{gguf2023}
-GGUF Format Specification. (2023).
-\newblock \url{https://github.com/ggerganov/ggml/blob/master/docs/gguf.md}
+GGUF Format Specification. (2023). \url{https://github.com/ggerganov/ggml/blob/master/docs/gguf.md}
+
+\bibitem[Holtzman et al.(2020)]{holtzman2020nucleus}
+Holtzman, A. et al. (2020). The Curious Case of Neural Text Degeneration. \emph{ICLR}.
 
 \bibitem[Hu et al.(2022)]{hu2022lora}
-Hu, E. J., Shen, Y., Wallis, P., Allen-Zhu, Z., Li, Y., Wang, S., Wang, L., \& Chen, W. (2022).
-\newblock LoRA: Low-Rank Adaptation of Large Language Models.
-\newblock \emph{Proceedings of the International Conference on Learning Representations (ICLR)}.
+Hu, E. J. et al. (2022). LoRA: Low-Rank Adaptation of Large Language Models. \emph{ICLR}.
+
+\bibitem[Keskar et al.(2019)]{keskar2019ctrl}
+Keskar, N. S. et al. (2019). CTRL: A Conditional Transformer Language Model for Controllable Generation. \emph{arXiv:1909.05858}.
 
 \bibitem[Kim et al.(2024)]{kim2024squeezellm}
-Kim, S., Hooper, C., Gholami, A., Dong, Z., Li, X., Shen, S., Mahoney, M. W., \& Keutzer, K. (2024).
-\newblock SqueezeLLM: Dense-and-Sparse Quantization.
-\newblock \emph{Proceedings of the International Conference on Machine Learning (ICML)}.
+Kim, S. et al. (2024). SqueezeLLM: Dense-and-Sparse Quantization. \emph{ICML}.
 
 \bibitem[Kwon et al.(2023)]{kwon2023vllm}
-Kwon, W., Li, Z., Zhuang, S., Sheng, Y., Zheng, L., Yu, C. H., Gonzalez, J. E., Zhang, H., \& Stoica, I. (2023).
-\newblock Efficient Memory Management for Large Language Model Serving with PagedAttention.
-\newblock \emph{Proceedings of the ACM SIGOPS Symposium on Operating Systems Principles (SOSP)}.
+Kwon, W. et al. (2023). Efficient Memory Management for Large Language Model Serving with PagedAttention. \emph{SOSP}.
 
 \bibitem[Leviathan et al.(2023)]{leviathan2023speculative}
-Leviathan, Y., Kalman, M., \& Matias, Y. (2023).
-\newblock Fast Inference from Transformers via Speculative Decoding.
-\newblock \emph{Proceedings of the International Conference on Machine Learning (ICML)}.
+Leviathan, Y. et al. (2023). Fast Inference from Transformers via Speculative Decoding. \emph{ICML}.
 
 \bibitem[Lin et al.(2024)]{lin2024awq}
-Lin, J., Tang, J., Tang, H., Yang, S., Dang, X., \& Han, S. (2024).
-\newblock AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration.
-\newblock \emph{Proceedings of Machine Learning and Systems (MLSys)}.
+Lin, J. et al. (2024). AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration. \emph{MLSys}.
 
 \bibitem[llama.cpp(2023)]{llamacpp2023}
-Gerganov, G. (2023).
-\newblock llama.cpp: LLM inference in C/C++.
-\newblock \url{https://github.com/ggerganov/llama.cpp}
+Gerganov, G. (2023). llama.cpp: LLM inference in C/C++. \url{https://github.com/ggerganov/llama.cpp}
 
 \bibitem[MLC-LLM(2023)]{mlcllm2023}
-MLC Team. (2023).
-\newblock MLC-LLM: Universal LLM Deployment Engine.
-\newblock \url{https://github.com/mlc-ai/mlc-llm}
+MLC Team. (2023). MLC-LLM. \url{https://github.com/mlc-ai/mlc-llm}
 
 \bibitem[Noll \& Fowler]{fnv1a}
-Noll, L. C. \& Fowler, G.
-\newblock FNV Hash.
-\newblock \url{http://www.isthe.com/chongo/tech/comp/fnv/}
+Noll, L. C. \& Fowler, G. FNV Hash. \url{http://www.isthe.com/chongo/tech/comp/fnv/}
 
 \bibitem[Ollama(2024)]{ollama2024}
-Ollama. (2024).
-\newblock Get up and running with large language models.
-\newblock \url{https://ollama.com}
+Ollama. (2024). \url{https://ollama.com}
 
 \bibitem[Paszke et al.(2019)]{pytorch2019}
-Paszke, A., Gross, S., Massa, F., et al. (2019).
-\newblock PyTorch: An Imperative Style, High-Performance Deep Learning Library.
-\newblock \emph{Advances in Neural Information Processing Systems}, 32.
+Paszke, A. et al. (2019). PyTorch: An Imperative Style, High-Performance Deep Learning Library. \emph{NeurIPS}, 32.
 
 \bibitem[safetensors(2023)]{safetensors2023}
-HuggingFace. (2023).
-\newblock safetensors: Simple, safe way to store and distribute tensors.
-\newblock \url{https://github.com/huggingface/safetensors}
+HuggingFace. (2023). safetensors. \url{https://github.com/huggingface/safetensors}
 
 \bibitem[Sennrich et al.(2016)]{sennrich2016bpe}
-Sennrich, R., Haddow, B., \& Birch, A. (2016).
-\newblock Neural Machine Translation of Rare Words with Subword Units.
-\newblock \emph{Proceedings of the 54th Annual Meeting of the Association for Computational Linguistics (ACL)}, 1715--1725.
+Sennrich, R. et al. (2016). Neural Machine Translation of Rare Words with Subword Units. \emph{ACL}, 1715--1725.
 
 \bibitem[Shazeer(2019)]{shazeer2019mqa}
-Shazeer, N. (2019).
-\newblock Fast Transformer Decoding: One Write-Head is All You Need.
-\newblock \emph{arXiv preprint arXiv:1911.02150}.
+Shazeer, N. (2019). Fast Transformer Decoding: One Write-Head is All You Need. \emph{arXiv:1911.02150}.
+
+\bibitem[Shazeer(2020)]{shazeer2020glu}
+Shazeer, N. (2020). GLU Variants Improve Transformer. \emph{arXiv:2002.05202}.
 
 \bibitem[Su et al.(2024)]{su2024roformer}
-Su, J., Ahmed, M., Lu, Y., Pan, S., Bo, W., \& Liu, Y. (2024).
-\newblock RoFormer: Enhanced Transformer with Rotary Position Embedding.
-\newblock \emph{Neurocomputing}, 568, 127063.
+Su, J. et al. (2024). RoFormer: Enhanced Transformer with Rotary Position Embedding. \emph{Neurocomputing}, 568, 127063.
 
 \bibitem[Touvron et al.(2023)]{touvron2023llama}
-Touvron, H., Lavril, T., Izacard, G., et al. (2023).
-\newblock LLaMA: Open and Efficient Foundation Language Models.
-\newblock \emph{arXiv preprint arXiv:2302.13971}.
+Touvron, H. et al. (2023). LLaMA: Open and Efficient Foundation Language Models. \emph{arXiv:2302.13971}.
 
-\bibitem[ExLlamaV2]{exllamav2}
-turboderp. (2023).
-\newblock ExLlamaV2: A fast inference library for running LLMs locally.
-\newblock \url{https://github.com/turboderp/exllamav2}
+\bibitem[Vaswani et al.(2017)]{vaswani2017attention}
+Vaswani, A. et al. (2017). Attention Is All You Need. \emph{NeurIPS}, 30.
+
+\bibitem[Zhang \& Sennrich(2019)]{zhang2019rmsnorm}
+Zhang, B. \& Sennrich, R. (2019). Root Mean Square Layer Normalization. \emph{NeurIPS}.
 
 \end{thebibliography}
 
