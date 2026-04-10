@@ -1,0 +1,12 @@
+build/
+*.o
+*.a
+*.so
+*.dylib
+*.qraf
+.DS_Store
+compile_commands.json
+.cache/
+models/
+node_modules/
+.claude/

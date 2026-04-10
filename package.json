@@ -1,0 +1,67 @@
+{
+  "name": "qraf",
+  "version": "0.1.0",
+  "description": "QRAF — Local LLM inference runtime with custom model format, optimized for Apple Silicon",
+  "main": "npm/index.js",
+  "bin": {
+    "qraf": "npm/cli.js"
+  },
+  "scripts": {
+    "postinstall": "node npm/postinstall.js",
+    "build": "mkdir -p build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release && make -j$(sysctl -n hw.ncpu 2>/dev/null || nproc)",
+    "test": "cd build && ./qraf-tests"
+  },
+  "keywords": [
+    "llm",
+    "inference",
+    "transformer",
+    "ai",
+    "machine-learning",
+    "apple-silicon",
+    "neon",
+    "simd",
+    "quantization",
+    "local-llm",
+    "ollama",
+    "qraf",
+    "model-format",
+    "gguf",
+    "safetensors",
+    "huggingface",
+    "cli",
+    "chatbot"
+  ],
+  "author": "Simon-Pierre Boucher",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/simonpierreboucher02/qraf.git"
+  },
+  "homepage": "https://github.com/simonpierreboucher02/qraf#readme",
+  "bugs": {
+    "url": "https://github.com/simonpierreboucher02/qraf/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "cpu": [
+    "arm64",
+    "x64"
+  ],
+  "files": [
+    "npm/",
+    "include/",
+    "src/",
+    "tools/",
+    "tests/",
+    "benchmarks/",
+    "CMakeLists.txt",
+    "README.md",
+    "LICENSE",
+    ".gitignore"
+  ]
+}
